@@ -21,7 +21,7 @@ Tor network.
 
 ## Procedure
 
-  1) Offers an heuristic to evaluate client distribution per AS without
+  A) Offers an heuristic to evaluate client distribution per AS without
     relying on new measurements (we only use the data which Tor already
     provides - i.e., an estimation of Tor users per country). This heuristic
     is a fundamental block of the load-balancing system, like Torflow
@@ -34,12 +34,12 @@ Tor network.
         the distribution of Ping-responsive IP addresses per custumer
         ASes (using RIPE atlas probes).  
   
-    Estimated work: more than 1 week full time.  
+    Estimated work for procedure A: more than 1 week full time.  
 
-  2) Apply the following minmax optimization problem to derive weights for each
+  B) Apply the following minmax optimization problem to derive weights for each
      location  
 
-   Let W_l the density of Clients per AS computed from 1), such that
+   Let W_l the density of Clients per AS computed from A), such that
    \sum W_l = 1  
    Let R_l a discrete distribution of scores to compute for guard selection
    common to all clients in AS l.  
@@ -65,6 +65,11 @@ Tor network.
 
       3) max_l max_i R_l(i)/relCost(i) <= \theta
   
+  Constraints 1) and 2) guarantee to preserve current Tor's
+load-balancing system. Constraint 3) trade-off location-aware benefit with
+defense against guard-placement attacks, as Aaron pointed out in his
+07.03.19 email.  
+
   Assuming a solver works on this (should be); then we may know compute
 the set of weights for the middle position:
 
@@ -76,3 +81,10 @@ middle relay Pr(M=i) = Wmg_i\*BW_i/\sum(Wmg_j\*BW_j)
   This procedure guarantees a load factor of 1 on each relay, with a
 minimization of a network adversary's incentives to control a particular
 AS, for all Tor users.
+
+  Estimated work for procedure B: more than one week full time -
+Difficult bits: computing VULN, and modelizing the above problem such
+that it is efficiently solved. (Note: maybe a gradient-based
+optimization solver would do the job easily.. I've no experience for problems with hundred
+thousand of variables...).
+
