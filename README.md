@@ -26,31 +26,31 @@ Tor network.
     provides - i.e., an estimation of Tor users per country). This heuristic
     is a fundamental block of the load-balancing system, like Torflow
     measurements are.
-    To map towards a distribution of clients per AS, we may either:
+    To map towards a distribution of clients per AS, we may either:  
       - Compute the joint distribution of Tor clients per country with
         the number of available IP addresses per custumer ASes (using
-        BGP databases).
+        BGP databases).  
       - Compute the joint distribution of Tor clients per country with
         the distribution of Ping-responsive IP addresses per custumer
-        ASes (using RIPE atlas probes).
-
-    Estimated work: more than 1 week full time.
+        ASes (using RIPE atlas probes).  
+  
+    Estimated work: more than 1 week full time.  
 
   2) Apply the following minmax optimization problem to derive weights for each
      location  
 
    Let W_l the density of Clients per AS computed from 1), such that
-   \sum W_l = 1
+   \sum W_l = 1  
    Let R_l a discrete distribution of scores to compute for guard selection
-   common to all clients in AS l.
+   common to all clients in AS l.  
    Let G the total consensus weight of the guard-flagged relays
    Let Wgg the fraction of bandwidth of each guard-flagged relay
    dedicated to the entry position, computed as described in
-   dir-spec.txt Section 3.8.4.
-   Let L = \sum W_l\*R_l
+   dir-spec.txt Section 3.8.4.  
+   Let L = \sum W_l\*R_l  
    Let VULN a discrete distribution of #vulnerable paths for all guards
    computed from the intersection set of ASes in the forward and reverse
-   paths between Client_AS <-> Guard and Exit <-> Destination
+   paths between Client_AS <-> Guard and Exit <-> Destination  
 
    We want to find an allocation of weights for each R_l such that:
 
