@@ -21,7 +21,7 @@ Tor network.
 
 ## Procedure
 
-  1)Offers an heuristic to evaluate client distribution per AS without
+  1) Offers an heuristic to evaluate client distribution per AS without
     relying on new measurements (we only use the data which Tor already
     provides - i.e., an estimation of Tor users per country). This heuristic
     is a fundamental block of the load-balancing system, like Torflow
