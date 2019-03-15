@@ -1,7 +1,7 @@
 # optimal-locaware-loadbalancing
 
 Set of scripts aimed at deriving scores to select relays in a
-location-aware fashion while still preserving the load-balancing of the
+location-aware fashion while still load-balancing the
 Tor network.
 
 ## Goals
@@ -71,11 +71,11 @@ defense against guard-placement attacks, as Aaron pointed out in his
 07.03.19 email.  
 
   Assuming a solver works on this (should be); then we may know compute
-the set of weights for the middle position:
+the set of weights for the middle position (global for all clients):
 
   Wmg_i = 1 - (L(i)/BW_i)
 
-  Each Tor clients selects guard with Pr(G=i) = R(i)/\sum(R(j)) and
+  Each Tor clients located in AS l selects guard with Pr(G=i) = R_l(i)/\sum(R(j)) and
 middle relay Pr(M=i) = Wmg_i\*BW_i/\sum(Wmg_j\*BW_j)
 
   This procedure guarantees a load factor of 1 on each relay, with a
