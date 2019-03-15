@@ -43,7 +43,7 @@ Tor network.
    \sum W_l = 1  
    Let R_l a discrete distribution of scores to compute for guard selection
    common to all clients in AS l.  
-   Let G the total consensus weight of the guard-flagged relays
+   Let G the total consensus weight of the guard-flagged relays  
    Let Wgg the fraction of bandwidth of each guard-flagged relay
    dedicated to the entry position, computed as described in
    dir-spec.txt Section 3.8.4.  
