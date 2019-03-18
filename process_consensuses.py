@@ -58,14 +58,14 @@ All credits to its original author
 
 parser = argparse.ArgumentParser(description="Process consensus, descriptors and extra info descriptors to store a consensus-dependant subset of\
         descriptor informations")
-parser.add_argument('--start_year', type=int)
-parser.add_argument('--start_month', type=int)
-parser.add_argument('--end_year', type=int)
-parser.add_argument('--end_month', type=int)
-parser.add_argument('--in_dir_cons', help='directory where are located consensus')
-parser.add_argument('--in_dir_desc', help='directory where are located descriptors')
-parser.add_argument('--in_dir_extra_desc', help='directory where are located extra escriptors')
-parser.add_argument('--out_dir', help='directory where we output our lightweight classes')
+parser.add_argument('--start_year', type=int, required=True)
+parser.add_argument('--start_month', type=int, required=True)
+parser.add_argument('--end_year', type=int, required=True)
+parser.add_argument('--end_month', type=int, required=True)
+parser.add_argument('--in_dir_cons', help='directory where are located consensus', required=True)
+parser.add_argument('--in_dir_desc', help='directory where are located descriptors', required=True)
+parser.add_argument('--in_dir_extra_desc', help='directory where are located extra escriptors', required=True)
+parser.add_argument('--out_dir', help='directory where we output our lightweight classes', required=True)
 parser.add_argument('--initial_descriptor_dir', help='Needed if we look in the beginning of a month, due to the structure of \
         archives files, the descriptors might be in the previous month')
 parser.add_argument('--initial_extrainfo_descriptor_dir', help='Need if we look in the beginning of a month, due the structure of \
@@ -402,6 +402,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     in_dirs = []
     month = args.start_month
+    print(args)
     for year in range(args.start_year, args.end_year+1):
       while ((year < args.end_year) and (month <= 12)) or \
              (month <= args.end_month):
