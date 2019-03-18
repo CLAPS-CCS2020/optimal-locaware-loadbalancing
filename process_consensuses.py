@@ -1,3 +1,4 @@
+from __future__ import print_function
 from slimDesc import *
 import stem.descriptor.reader
 from stem.descriptor.reader import FileMissing
@@ -9,7 +10,6 @@ import cPickle as pickle
 import datetime, time, pytz
 import wget
 import argparse
-
 """
 
 To the extent that a federal employee is an author of a portion of
@@ -56,7 +56,7 @@ All credits to its original author
 
 """
 
-parser = argparse.ArgumentParser(description="Process consensus, descriptors and extra info descriptors to store a consensus-dependant subset of
+parser = argparse.ArgumentParser(description="Process consensus, descriptors and extra info descriptors to store a consensus-dependant subset of\
         descriptor informations")
 parser.add_argument('--start_year', type=int)
 parser.add_argument('--start_month', type=int)
@@ -74,9 +74,9 @@ parser.add_argument('--initial_extrainfo_descriptor_dir', help='Need if we look 
 
 class TorOptions:
     """Stores some parameters set by Tor."""
-    # given by #define ROUTER_MAX_AGE (60*60*48) in or.h    
-    router_max_age = 60*60*48    
-    default_bwweightscale = 10000   
+    # given by #define ROUTER_MAX_AGE (60*60*48) in or.h
+    router_max_age = 60*60*48
+    default_bwweightscale = 10000
 
 def timestamp(t):
     """Returns UNIX timestamp"""
@@ -91,53 +91,53 @@ def timestamp(t):
 
 
 def read_descriptors(descriptors, end_of_month_desc, descriptor_dir, skip_listener):
-	"""Add to descriptors contents of descriptor archive in descriptor_dir."""
-        num_descriptors = 0    
-        num_relays = 0
-        print('Reading descriptors from: {0}'.format(descriptor_dir))
-        reader = stem.descriptor.reader.DescriptorReader(descriptor_dir, \
-        validate=False)
-        reader.register_skip_listener(skip_listener)
-        # use read li$stener to store metrics type annotation, whione_annotation = [None]
-        cur_type_annotation = [None]
-        def read_listener(path):
-            f = open(path)
-            # store initial metrics type annotation
-            initial_position = f.tell()
-            first_line = f.readline()
-            f.seek(initial_position)
-            if (first_line[0:5] == '@type'):
-                cur_type_annotation[0] = first_line
-            else:
-                cur_type_annotation[0] = None
-            f.close()
-        reader.register_read_listener(read_listener)
-        with reader:
-            for desc in reader:
-                if (num_descriptors % 10000 == 0):
-                    print('{0} descriptors processed.'.format(num_descriptors))
-                num_descriptors += 1
-                if (desc.fingerprint not in descriptors):
-                    descriptors[desc.fingerprint] = {}
-                    num_relays += 1
-                    # stuff type annotation into stem object
-                desc.type_annotation = cur_type_annotation[0]
-                if desc.published is not None:
-                    t_published =  timestamp(desc.published.replace(tzinfo=pytz.UTC))
-                    if (desc.published.day > 27): #february ends the 28th and I am lazy
-                        if (desc.fingerprint not in end_of_month_desc):
-                            end_of_month_desc[desc.fingerprint] = {}
-                        end_of_month_desc[desc.fingerprint][t_published] = desc
-                    descriptors[desc.fingerprint]\
-                            [t_published] = desc
-        print('#descriptors: {0}; #relays:{1}'.\
-            format(num_descriptors,num_relays)) 
+    """Add to descriptors contents of descriptor archive in descriptor_dir."""
+    num_descriptors = 0
+    num_relays = 0
+    print('Reading descriptors from: {0}'.format(descriptor_dir))
+    reader = stem.descriptor.reader.DescriptorReader(descriptor_dir, \
+    validate=False)
+    reader.register_skip_listener(skip_listener)
+    # use read li$stener to store metrics type annotation, whione_annotation = [None]
+    cur_type_annotation = [None]
+    def read_listener(path):
+        f = open(path)
+        # store initial metrics type annotation
+        initial_position = f.tell()
+        first_line = f.readline()
+        f.seek(initial_position)
+        if (first_line[0:5] == '@type'):
+            cur_type_annotation[0] = first_line
+        else:
+            cur_type_annotation[0] = None
+        f.close()
+    reader.register_read_listener(read_listener)
+    with reader:
+        for desc in reader:
+            if (num_descriptors % 10000 == 0):
+                print('{0} descriptors processed.'.format(num_descriptors))
+            num_descriptors += 1
+            if (desc.fingerprint not in descriptors):
+                descriptors[desc.fingerprint] = {}
+                num_relays += 1
+                # stuff type annotation into stem object
+            desc.type_annotation = cur_type_annotation[0]
+            if desc.published is not None:
+                t_published =  timestamp(desc.published.replace(tzinfo=pytz.UTC))
+                if (desc.published.day > 27): #february ends the 28th and I am lazy
+                    if (desc.fingerprint not in end_of_month_desc):
+                        end_of_month_desc[desc.fingerprint] = {}
+                    end_of_month_desc[desc.fingerprint][t_published] = desc
+                descriptors[desc.fingerprint]\
+                        [t_published] = desc
+    print('#descriptors: {0}; #relays:{1}'.\
+        format(num_descriptors,num_relays)) 
 
 #TODO use system call to untar after download. Python2.7 does not handle .xz compression mode
 def consensus_dir_exist_or_download(in_consensus_dir):
     #pdb.set_trace()
     if not os.path.isdir(in_consensus_dir) and not os.path.exists("{0}.tar.xz".format(in_consensus_dir)):
-        print "Consensus dir missing. Downloading tar file"
+        print("Consensus dir missing. Downloading tar file")
         wget.download("https://collector.torproject.org/archive/relay-descriptors/consensuses/{0}.tar.xz".
                 format(in_consensus_dir.split('/')[-1]), "{0}.tar.xz".format(in_consensus_dir))
 
@@ -165,7 +165,7 @@ def process_consensuses(in_dirs, initial_descriptor_dir, initial_extra_descripto
                 url = "https://collector.torproject.org/archive/relay-descriptors/consensuses/{0}.tar.xz".format(filename)
             else:
                 raise ValueError("filename is not about descriptors")
-            print "Downloading descriptors to {0}.tar.xz".format(path)
+            print("Downloading descriptors to {0}.tar.xz".format(path))
             wget.download(url, "{0}.tar.xz".format(path))
         
     # initialize descriptors
@@ -329,7 +329,7 @@ def process_consensuses(in_dirs, initial_descriptor_dir, initial_extra_descripto
                                 desc.dir_v2_requests,\
                                 desc.dir_v3_requests)
                     else:
-                        print "No extra-info descriptor found for {0}-{1}".format(r_stat.fingerprint, r_stat.nickname)
+                        print ("No extra-info descriptor found for {0}-{1}".format(r_stat.fingerprint, r_stat.nickname))
                         descriptors_out[r_stat.fingerprint] = \
                             ServerDescriptor(desc.fingerprint, \
                                 desc.hibernating, desc.nickname, \
