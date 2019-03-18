@@ -1,5 +1,5 @@
 from __future__ import print_function
-from slimDesc import *
+from slim_desc import *
 import stem.descriptor.reader
 from stem.descriptor.reader import FileMissing
 import stem.descriptor
