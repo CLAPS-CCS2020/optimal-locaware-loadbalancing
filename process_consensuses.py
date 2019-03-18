@@ -6,7 +6,7 @@ import stem.descriptor
 import stem
 import os
 import os.path
-import cPickle as pickle
+import pickle
 import datetime, time, pytz
 import wget
 import argparse
