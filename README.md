@@ -36,7 +36,8 @@ Tor network.
         ASes (using RIPE atlas probes).  
       - Compute the joint distribution of Tor clients per country with
         any genius idea about measuring the proportion of people per AS.
-        What about using information about Netflix strategic deployment?
+        What about using information on Netflix strategic deployment
+        (i.e., they try to put servers close to people)?
         (paper: Open Connect Everywhere: A Glimpse at the Internet
         Ecosystem through the Lens of the Netflix CDN)
   
