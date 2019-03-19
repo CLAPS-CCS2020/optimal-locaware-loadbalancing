@@ -14,6 +14,11 @@ We dump on the disk that information for later use.
 
 Note: remaining problem to solve: filtering out ASes and IPs from hosting companies
 
+Research question: in which ASes de we find citizens? In which proportion?
+
+idea: use CDNs database or in a more general way, try to find out any side-channel
+information that could help us to locate where people are
+
 """
 
 GETAS_URL = "https://stat.ripe.net/data/country-asns/data.json?resource="
