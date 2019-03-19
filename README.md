@@ -12,7 +12,8 @@ Tor network.
 
   - The location-aware scheme minimizes the probability to end-up with a
     same AS in both Client-Guard IP-level path and Exit-Destination
-    IP-level path, for all Tor clients.
+    IP-level path, for all Tor clients. (Q: are AS the relevant threat,
+    or IXPs?)
 
   - \theta-GP-secure
 
@@ -35,6 +36,9 @@ Tor network.
         ASes (using RIPE atlas probes).  
       - Compute the joint distribution of Tor clients per country with
         any genius idea about measuring the proportion of people per AS.
+        What about using information about Netflix strategic deployment?
+        (paper: Open Connect Everywhere: A Glimpse at the Internet
+        Ecosystem through the Lens of the Netflix CDN)
   
     Estimated work for procedure A: more than 1 week full time.  
 
