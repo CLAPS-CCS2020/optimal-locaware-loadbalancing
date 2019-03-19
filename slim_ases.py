@@ -25,6 +25,21 @@ class ASCust:
         origin prefixes
         """
         if self.num_ipv4_addresses is None:
-            pass
+            allIps = []
+            self.num_ipv4_addresses = 0
+            for prefix in self.prefixes_originated:
+                allIps.append(ipaddress.ip_network(prefix))
+            for network in allIps:
+                countit = True
+                # Do not count subnets
+                for checkOverlap in allIps:
+                    if network != checkOverlap and network.overlaps(checkOverlap) and\
+                       network.prefixlen > checkOverlap.prefixlen:
+                        countit = False
+                        break
+                if countit:
+                    self.num_ipv4_addresses+=network.num_addresses
+
+
 
 
