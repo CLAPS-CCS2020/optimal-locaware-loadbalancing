@@ -33,6 +33,8 @@ Tor network.
       - Compute the joint distribution of Tor clients per country with
         the distribution of Ping-responsive IP addresses per custumer
         ASes (using RIPE atlas probes).  
+      - Compute the joint distribution of Tor clients per country with
+        any genius idea about measuring the proportion of people per AS.
   
     Estimated work for procedure A: more than 1 week full time.  
 
