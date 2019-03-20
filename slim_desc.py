@@ -13,7 +13,9 @@ class RouterStatusEntry:
 class ServerDescriptor:
 
     def __init__(self, fprint, hibernating, nickname, family, address,
-            avg_bw, burst_bw, observ_bw, extra_info_digest):
+            avg_bw, burst_bw, observ_bw, extra_info_digest,
+            dirreqv2_from_country, dirreqv3_from_country,
+            dirreqv2_unique_ips, dirreqv3_unique_ips):
         self.fprint = fprint
         self.hibernating = hibernating
         self.nickname = nickname
@@ -23,7 +25,13 @@ class ServerDescriptor:
         self.observ_bw = observ_bw
         self.extra_info_digest = extra_info_digest
         #mapping of locales to rounded count of requests
-        self.dirreqv2_from_country = dirreq_from_country 
+        #dirreq-v3-ips counts each country once for each unique IP in that country,
+        #no matter how many requests each IP makes. dirreq-v3-reqs counts the
+        #number of requests from each country.
+        self.dirreqv2_from_country = dirreqv2_from_country 
+        self.dirreqv3_from_country = dirreqv3_from_country 
+        self.dirreqv2_unique_ips = dirreqv2_unique_ips
+        self.dirreqv3_unique_ips = dirreqv3_unique_ips
 
 
 class NetworkStatusDocument:

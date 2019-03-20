@@ -2,6 +2,8 @@ import argparse
 import sys, os
 from process_consensuses import timestamp, TorOptions
 from slim_desc import *
+from stem import Flag
+import pickle
 
 """
 
@@ -18,6 +20,7 @@ parser.add_argument('--start_month', type=int, required=True)
 parser.add_argument('--end_year', type=int, required=True)
 parser.add_argument('--end_month', type=int, required=True)
 parser.add_argument('--in_dir', required=True)
+parser.add_argument('--out_dir', required=True)
 
 def get_network_states(network_state_files):
     """
@@ -59,11 +62,37 @@ def get_network_state(ns_file):
         cons_bwweightscale, cons_rel_stats, hibernating_statuses,
 new_descriptors)
 
-def main(ns_files):
+def main(ns_files, args):
     """
         Computes the distribution of users per country
     """
-    pass
+    countries = {}
+    descriptors = {}
+
+    for network_state in get_network_states(ns_files):
+        descriptors.update(network_state.descriptors)
+        relays = network_state.cons_rel_stats
+        
+        for relayfp in relays:
+            if Flag.GUARD in relays[relayfp].flags and Flag.EXIT not in relays[relayfp].flags:
+                for countrycode, numreqs in descriptors[relayfp].dirreqv2_unique_ips.items():
+                    if countrycode not in countries:
+                        countries[countrycode] = numreqs
+                    else:
+                        countries[countrycode] += numreqs
+                for countrycode, numreqs in descriptors[relayfp].dirreqv3_unique_ips.items():
+                    if countrycode not in countries:
+                        countries[countrycode] = numreqs
+                    else:
+                        countries[countrycode] += numreqs
+     # Dumping all country information
+     f = open(os.path.join(args.out_dir, "countries_info_from_{}-{}-{}_to_{}-{}-{}".format(
+         args.start_year, args.start_month, args.start_day, args.end_year, args.end_month,
+         args.end_day)), "wb")
+     pickle.dump(countries, f, pickle.HIGHEST_PROTOCOL)
+
+
+
 
 
 if __name__ == "__main__":
