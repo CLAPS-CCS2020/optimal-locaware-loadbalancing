@@ -41,26 +41,25 @@ def get_network_state(ns_file):
     """Reads in network state file, returns slim_desc.NetworkState object."""
     
     cons_rel_stats = {}
-    with open(ns_file, 'r') as nsf:
+    with open(ns_file, 'rb') as nsf:
         consensus = pickle.load(nsf)
         new_descriptors = pickle.load(nsf)
         hibernating_statuses = pickle.load(nsf)
         
     # set variables from consensus
-    cons_valid_after = timestamp(consensus.valid_after)            
-    cons_fresh_until = timestamp(consensus.fresh_until)
-    cons_bw_weights = consensus.bandwidth_weights
-    if (consensus.bwweightscale == None):
+    cons_valid_after = timestamp(consensus.cons_valid_after)            
+    cons_fresh_until = timestamp(consensus.cons_fresh_until)
+    cons_bw_weights = consensus.cons_bw_weights
+    if (consensus.cons_bwweightscale == None):
         cons_bwweightscale = TorOptions.default_bwweightscale
     else:
-        cons_bwweightscale = consensus.bwweightscale
+        cons_bwweightscale = consensus.cons_bwweightscale
     for relay in consensus.relays:
         if (relay in new_descriptors):
             cons_rel_stats[relay] = consensus.relays[relay]
     
     return NetworkState(cons_valid_after, cons_fresh_until, cons_bw_weights,
-        cons_bwweightscale, cons_rel_stats, hibernating_statuses,
-new_descriptors)
+        cons_bwweightscale, cons_rel_stats, hibernating_statuses, new_descriptors)
 
 def main(ns_files, args):
     """
@@ -117,5 +116,5 @@ if __name__ == "__main__":
             month+=1
         month = 1
     pathnames.sort()
-    sys.exit(main(ns_files))
+    sys.exit(main(pathnames, args))
 

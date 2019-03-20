@@ -46,10 +46,11 @@ class NetworkStatusDocument:
 
 class NetworkState:
     def __init__(self, cons_valid_after, cons_fresh_until, cons_bw_weights,
-            hibernating_statuses, cons_rel_stats, descriptors):
+            cons_bwweightscale, hibernating_statuses, cons_rel_stats, descriptors):
         self.cons_valid_after = cons_valid_after
         self.cons_fresh_until = cons_fresh_until
         self.cons_bw_weights = cons_bw_weights
+        self.cons_bwweightscale = cons_bwweightscale
         self.hibernating_statuses = hibernating_statuses 
         self.cons_rel_stats = cons_rel_stats
         self.descriptors = descriptors
