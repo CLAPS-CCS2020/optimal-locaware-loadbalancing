@@ -71,19 +71,10 @@ def main(ns_files, args):
     for network_state in get_network_states(ns_files):
         descriptors.update(network_state.descriptors)
         relays = network_state.cons_rel_stats
+        ##
+        # Todo count only when we observe a new descriptor
+        #
         
-        for relayfp in relays:
-            if Flag.GUARD in relays[relayfp].flags and Flag.EXIT not in relays[relayfp].flags:
-                for countrycode, numreqs in descriptors[relayfp].dirreqv2_unique_ips.items():
-                    if countrycode not in countries:
-                        countries[countrycode] = numreqs
-                    else:
-                        countries[countrycode] += numreqs
-                for countrycode, numreqs in descriptors[relayfp].dirreqv3_unique_ips.items():
-                    if countrycode not in countries:
-                        countries[countrycode] = numreqs
-                    else:
-                        countries[countrycode] += numreqs
     # Dumping all country information
     outpath = os.path.join(args.out_dir, 'countries_info_from_{}-{}-{}_to_{}-{}-{}'.format(
         args.start_year, args.start_month, args.start_day, args.end_year, args.end_month,
