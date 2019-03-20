@@ -326,10 +326,10 @@ def process_consensuses(in_dirs, initial_descriptor_dir, initial_extra_descripto
                                 desc.average_bandwidth, desc.burst_bandwidth, \
                                 desc.observed_bandwidth, \
                                 desc.extra_info_digest, \
-                                desc.dir_v2_requests,\
-                                desc.dir_v3_requests,\
-                                desc.dir_v2_ips,\
-                                desc.dir_v3_ips)
+                                extra_desc.dir_v2_requests,\
+                                extra_desc.dir_v3_requests,\
+                                extra_desc.dir_v2_ips,\
+                                extra_desc.dir_v3_ips)
                     else:
                         print ("No extra-info descriptor found for {0}-{1}".format(r_stat.fingerprint, r_stat.nickname))
                         descriptors_out[r_stat.fingerprint] = \
