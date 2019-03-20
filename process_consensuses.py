@@ -245,7 +245,7 @@ def process_consensuses(in_dirs, initial_descriptor_dir, initial_extra_descripto
                     ('bwweightscale' in document.params):
                     cons_bwweightscale = document.params[\
                             'bwweightscale']
-                for fprint, r_stat in document.routers.iteritems():
+                for fprint, r_stat in document.routers.items():
                     relays[fprint] = RouterStatusEntry(fprint, r_stat.nickname, \
                         r_stat.flags, r_stat.bandwidth)
                 consensus = document
@@ -255,7 +255,7 @@ def process_consensuses(in_dirs, initial_descriptor_dir, initial_extra_descripto
             # find relays' most recent unexpired descriptor published
             # before the publication time in the consensus
             # and status changes in fresh period (i.e. hibernation)
-            for fprint, r_stat in consensus.routers.iteritems():
+            for fprint, r_stat in consensus.routers.items():
                 pub_time = timestamp(r_stat.published.replace(tzinfo=pytz.UTC))
                 desc_time = 0
                 descs_while_fresh = []
@@ -295,7 +295,7 @@ def process_consensuses(in_dirs, initial_descriptor_dir, initial_extra_descripto
                     extra_found = False
                     try :
                         extra_descs = extra_descriptors[r_stat.fingerprint]
-                        for key, extra_desc_elem in extra_descs.iteritems():
+                        for key, extra_desc_elem in extra_descs.items():
                             if desc.extra_info_digest == extra_desc_elem.digest():
                                 extra_desc = extra_desc_elem
                                 extra_found = True
