@@ -85,17 +85,19 @@ def main(ns_files, args):
                         countries[countrycode] = numreqs
                     else:
                         countries[countrycode] += numreqs
-     # Dumping all country information
-     f = open(os.path.join(args.out_dir, "countries_info_from_{}-{}-{}_to_{}-{}-{}".format(
-         args.start_year, args.start_month, args.start_day, args.end_year, args.end_month,
-         args.end_day)), "wb")
-     pickle.dump(countries, f, pickle.HIGHEST_PROTOCOL)
+    # Dumping all country information
+    outpath = os.path.join(args.out_dir, 'countries_info_from_{}-{}-{}_to_{}-{}-{}'.format(
+        args.start_year, args.start_month, args.start_day, args.end_year, args.end_month,
+        args.end_day))
+    f = open(outpath, "wb")
+    pickle.dump(countries, f, pickle.HIGHEST_PROTOCOL)
 
 
 
 
 
 if __name__ == "__main__":
+    args = parser.parse_args()
     month = args.start_month
     day = args.start_day
     pathnames = []
@@ -114,6 +116,6 @@ if __name__ == "__main__":
             day = 1
             month+=1
         month = 1
-     pathnames.sort()
-     sys.exit(main(ns_files))
+    pathnames.sort()
+    sys.exit(main(ns_files))
 
