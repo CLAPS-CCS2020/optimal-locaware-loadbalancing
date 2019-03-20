@@ -81,6 +81,9 @@ def main(args):
     ##
 
     #Idea:Query top-1000 alexa and filter-out ASes which announce those IPs?
+    
+    #Idea find reverse-dns of an IP that does not match the country code of that country and filter them out
+    #     (rational: ISPs for a given country probably configure their PTR record with the country code extension (and not .com/.net/etc)
 
     # Query originating v4 prefixes for all ASes
     # and count total of IPs
