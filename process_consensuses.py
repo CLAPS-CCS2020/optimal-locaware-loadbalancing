@@ -320,7 +320,7 @@ def process_consensuses(in_dirs, initial_descriptor_dir, initial_extra_descripto
                                 .format(r_stat.fingerprint, desc.nickname))
                     if extra_found :
                         descriptors_out[r_stat.fingerprint] = \
-                            S, r_stat.nicknameerverDescriptor(desc.fingerprint, \
+                                ServerDescriptor(desc.fingerprint, \
                                 desc.hibernating, desc.nickname, \
                                 desc.family, desc.address, \
                                 desc.average_bandwidth, desc.burst_bandwidth, \

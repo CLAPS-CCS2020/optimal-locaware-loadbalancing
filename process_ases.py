@@ -43,7 +43,7 @@ def main(args):
         print("Handling {}-{}".format(country.alpha_2, country.name))
         r = requests.get(GETAS_URL+country.alpha_2+"&lod=1&query_time="+time)
         if r.status_code > 200:
-            #try 2 more times:
+            #try 2 more times
             for _ in range(0,2):
                 print("Status code of previous request: {} - Waiting 5 seconds and retry".format(r.status_code))
                 dtime.sleep(5)
@@ -80,6 +80,8 @@ def main(args):
     # Find a way to filter out hosting ASes (e.g., AS16276)
     ##
 
+    #Idea:Query top-1000 alexa and filter-out ASes which announce those IPs?
+
     # Query originating v4 prefixes for all ASes
     # and count total of IPs
     for asn in AsInfo:
@@ -103,6 +105,9 @@ def main(args):
 
         AsInfo[asn].compute_num_ipv4_addresses()
     
+    #TODO
+    # filter out ASes that does not have smaller prefixes than /24
+
     #dump allAses info
     print("Dumping all ASes info")
     outpath  = os.path.join(args.out, "allAses-"+time)
