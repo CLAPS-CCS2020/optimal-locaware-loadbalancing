@@ -66,9 +66,10 @@ Tor network.
    under constraints:
 
       1) for l in AllLocations:
-         \sum R_l(i) = G*Wgg
+          \sum R_l(i) = G*Wgg
       
-      2) L(i) <= BW_i
+      2) for i in allGuards:
+          L(i) <= BW_i
 
       3) max_l max_i R_l(i)/relCost(i) <= \theta
   
