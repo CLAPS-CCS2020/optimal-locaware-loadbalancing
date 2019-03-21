@@ -13,7 +13,10 @@ Tor network.
   - The location-aware scheme minimizes the probability to end-up with a
     same AS in both Client-Guard IP-level path and Exit-Destination
     IP-level path, for all Tor clients. (Q: are AS the relevant threat,
-    or IXPs?)
+    or IXPs?) We can extend this by considering 2 AS, 3 AS, ... We also 
+    need to see how to model the Exit-Destination traffic: we cannot pick 
+    an exit node as a function of the traffic destination. Focus on most 
+    common websites? CDNs? IXPs? 
 
   - \theta-GP-secure
 
