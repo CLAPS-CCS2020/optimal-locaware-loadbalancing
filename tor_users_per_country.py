@@ -4,7 +4,7 @@ from process_consensuses import timestamp, TorOptions
 from slim_desc import *
 from stem import Flag
 import pickle
-
+import pdb
 """
 
 Takes as input network states for a given period and output the distribution of observed users
@@ -33,7 +33,7 @@ def get_network_states(network_state_files):
             network_state = get_network_state(ns_file)
         else:
             network_state = None
-    yield network_state
+        yield network_state
 
     
 
@@ -67,14 +67,42 @@ def main(ns_files, args):
     """
     countries = {}
     descriptors = {}
+    descriptors_to_look_at = {}
 
     for network_state in get_network_states(ns_files):
-        descriptors.update(network_state.descriptors)
+        if (network_state == None):
+            raise ValueError("Network state is none")
+        for descfp in network_state.descriptors:
+            #for any new descriptor:
+            if descfp not in descriptors:
+                descriptors_to_look_at[descfp] = network_state.descriptors[descfp]
+            else:
+                ## update the desc if the extra_info_digest is new
+                if descriptors[descfp].extra_info_digest !=\
+                   network_state.descriptors[descfp].extra_info_digest and\
+                   network_state.descriptors is not None:
+                    descriptors_to_look_add[descfp] = network_state.descriptors[descfp]
+
         relays = network_state.cons_rel_stats
+        for relayfp in descriptors_to_look_at:
+            if Flag.GUARD in relays[relayfp].flags and Flag.EXIT not in relays[relayfp].flags:
+                for countrycode, numreqs in descriptors[relayfp].dirreqv2_unique_ips.items():
+                    if countrycode not in countries:
+                        countries[countrycode] = numreqs
+                    else:
+                        countries[countrycode] += numreqs
+                for countrycode, numreqs in descriptors[relayfp].dirreqv3_unique_ips.items():
+                    if countrycode not in countries:
+                        countries[countrycode] = numreqs
+                    else:
+                        countries[countrycode] += numreqs
+
+        descriptors.update(network_state.descriptors)
+        print(countries)
         ##
         # Todo count only when we observe a new descriptor
         #
-        
+
     # Dumping all country information
     outpath = os.path.join(args.out_dir, 'countries_info_from_{}-{}-{}_to_{}-{}-{}'.format(
         args.start_year, args.start_month, args.start_day, args.end_year, args.end_month,
