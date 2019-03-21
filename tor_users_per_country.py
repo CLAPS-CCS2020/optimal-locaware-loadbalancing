@@ -59,7 +59,7 @@ def get_network_state(ns_file):
             cons_rel_stats[relay] = consensus.relays[relay]
     
     return NetworkState(cons_valid_after, cons_fresh_until, cons_bw_weights,
-        cons_bwweightscale, cons_rel_stats, hibernating_statuses, new_descriptors)
+        cons_bwweightscale,  hibernating_statuses, cons_rel_stats, new_descriptors)
 
 def main(ns_files, args):
     """
@@ -67,11 +67,9 @@ def main(ns_files, args):
     """
     countries = {}
     descriptors = {}
-    descriptors_to_look_at = {}
 
     for network_state in get_network_states(ns_files):
-        if (network_state == None):
-            raise ValueError("Network state is none")
+        descriptors_to_look_at = {}
         for descfp in network_state.descriptors:
             #for any new descriptor:
             if descfp not in descriptors:
@@ -80,28 +78,28 @@ def main(ns_files, args):
                 ## update the desc if the extra_info_digest is new
                 if descriptors[descfp].extra_info_digest !=\
                    network_state.descriptors[descfp].extra_info_digest and\
-                   network_state.descriptors is not None:
-                    descriptors_to_look_add[descfp] = network_state.descriptors[descfp]
-
+                   network_state.descriptors[descfp].extra_info_digest is not None:
+                    descriptors_to_look_at[descfp] = network_state.descriptors[descfp]
+        print("we look at {} descriptors".format(len(descriptors_to_look_at)))
         relays = network_state.cons_rel_stats
-        for relayfp in descriptors_to_look_at:
+        for relayfp in descriptors_to_look_at.keys():
+            if relayfp not in relays:
+                print("Relays {} not in our list?".format(relayfp))
             if Flag.GUARD in relays[relayfp].flags and Flag.EXIT not in relays[relayfp].flags:
-                for countrycode, numreqs in descriptors[relayfp].dirreqv2_unique_ips.items():
-                    if countrycode not in countries:
-                        countries[countrycode] = numreqs
-                    else:
-                        countries[countrycode] += numreqs
-                for countrycode, numreqs in descriptors[relayfp].dirreqv3_unique_ips.items():
-                    if countrycode not in countries:
-                        countries[countrycode] = numreqs
-                    else:
-                        countries[countrycode] += numreqs
+                if descriptors_to_look_at[relayfp].dirreqv2_unique_ips is not None:
+                    for countrycode, numreqs in descriptors_to_look_at[relayfp].dirreqv2_unique_ips.items():
+                        if countrycode not in countries:
+                            countries[countrycode] = numreqs
+                        else:
+                            countries[countrycode] += numreqs
+                if descriptors_to_look_at[relayfp].dirreqv3_unique_ips is not None:
+                    for countrycode, numreqs in descriptors_to_look_at[relayfp].dirreqv3_unique_ips.items():
+                        if countrycode not in countries:
+                            countries[countrycode] = numreqs
+                        else:
+                            countries[countrycode] += numreqs
 
         descriptors.update(network_state.descriptors)
-        print(countries)
-        ##
-        # Todo count only when we observe a new descriptor
-        #
 
     # Dumping all country information
     outpath = os.path.join(args.out_dir, 'countries_info_from_{}-{}-{}_to_{}-{}-{}'.format(
