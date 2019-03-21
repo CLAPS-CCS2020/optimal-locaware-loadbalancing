@@ -101,6 +101,12 @@ def main(ns_files, args):
 
         descriptors.update(network_state.descriptors)
 
+    country_percent = {}
+    tot = sum(countries.values())
+    for country, value in countries.items():
+        country_percent[country] = value/tot
+    printable_countries = country_percent.items()
+    print(sorted(printable_countries, key=lambda x: x[1], reverse=True))
     # Dumping all country information
     outpath = os.path.join(args.out_dir, 'countries_info_from_{}-{}-{}_to_{}-{}-{}'.format(
         args.start_year, args.start_month, args.start_day, args.end_year, args.end_month,
@@ -120,8 +126,8 @@ if __name__ == "__main__":
     for year in range(args.start_year, args.end_year+1):
         while (year < args.end_year and month <= 12) or (month <= args.end_month):
             prepend_month = '0' if month <= 9 else ''
-            while (year < args.end_year and month <= 12 and day <= 31) or\
-                  (day <= args.end_day):
+            while (year < args.end_year and month <= 12 and day <= args.end_day) or\
+                  (year == args.end_year and month == args.end_month and day <= args.end_day):
                 prepend_day = '0' if day <= 9 else ''
                 for dirpath, dirnames, fnames in os.walk(args.in_dir):
                     for fname in fnames:
@@ -133,5 +139,6 @@ if __name__ == "__main__":
             month+=1
         month = 1
     pathnames.sort()
+    pdb.set_trace()
     sys.exit(main(pathnames, args))
 
