@@ -111,7 +111,7 @@ def main(args):
     
     #TODO
     # filter out ASes that does not have "enough" IPs
-    to_remove = [asn for asn in AsInfo if AsInfo[asn].num_addresses < NUM_IPS_CUTOFF]
+    to_remove = [asn for asn in AsInfo if AsInfo[asn].num_ipv4_addresses < NUM_IPS_CUTOFF]
     print("Removing {} ASes".format(len(to_remove)))
     for asn in tor_remove:
         del AsInfo[asn]
