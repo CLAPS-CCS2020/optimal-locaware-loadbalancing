@@ -74,8 +74,7 @@ def modelize_opt_problem(W, ns_file):
     location_aware = LpProblem("Optimal location-aware path selection", LpMinimize)
     # Write a minmax problem as a min of a upper bound
     #Todo careful, the upBound depends on the scale of Vuln
-    objective = LpVariable("L_upper_bound", lowBound = 0
-                Wgg*G)
+    objective = LpVariable("L_upper_bound", lowBound = 0, upBound=Wgg*G)
     L = {}
     for guard in guardsfp:
         L[guard] = LpAffineExpression([(R[asn][guard], W[asn]) for asn in W])
