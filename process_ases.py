@@ -24,6 +24,7 @@ information that could help us to locate where people are
 GETAS_URL = "https://stat.ripe.net/data/country-asns/data.json?resource="
 RIS_ASN_URL = "https://stat.ripe.net/data/ris-asns/data.json?list_asns=true&asn_types=o"
 RIS_PREFIX = "https://stat.ripe.net/data/ris-prefixes/data.json?resource="
+NUM_IPS_CUTOFF = 2**14
 
 parser = argparse.ArgumentParser(description="Process AS information from Ripe Atlas databases")
 
@@ -109,7 +110,11 @@ def main(args):
         AsInfo[asn].compute_num_ipv4_addresses()
     
     #TODO
-    # filter out ASes that does not have smaller prefixes than /24
+    # filter out ASes that does not have "enough" IPs
+    to_remove = [asn for asn in AsInfo if AsInfo[asn].num_addresses < NUM_IPS_CUTOFF]
+    print("Removing {} ASes".format(len(to_remove)))
+    for asn in tor_remove:
+        del AsInfo[asn]
 
     #dump allAses info
     print("Dumping all ASes info")
