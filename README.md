@@ -7,7 +7,7 @@ Tor network.
 ## Goals
 
   - Easily deployable / implementable system; Does not change the
-    fundamental logic of Tor's weight selection, but how only *how*
+    fundamental logic of Tor's weight selection, but only *how*
     those weights are computed to offer location-aware protection
 
   - The location-aware scheme minimizes the probability to end-up with a
@@ -74,7 +74,8 @@ Tor network.
       2) for i in allGuards:
           L(i) <= BW_i
 
-      3) max_l max_i R_l(i)/relCost(i) <= \theta
+      3) for l in AllLocations:
+          max_l max_i R_l(i)/relCost(i) <= \theta
   
   Constraints 1) and 2) guarantee to preserve current Tor's
 load-balancing system. Constraint 3) trade-off location-aware benefit with
