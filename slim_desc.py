@@ -9,6 +9,7 @@ class RouterStatusEntry:
         self.fprint = fprint
         self.nickname = nickname
         self.flags = flags
+        self.consweight = consweight
 
 class ServerDescriptor:
 
