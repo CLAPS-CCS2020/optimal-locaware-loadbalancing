@@ -50,7 +50,11 @@ def load_and_compute_W(tor_users_to_country_file, curt_ases_file):
 
         else:
             raise ValueError("Something wrong happened: {}", r.json())
-    ## Todo normalize in [0,1]
+    # Normalize
+    tot = sum(tor_users_per_as.values())
+    W = {}
+    for asn, value in tor_users_per_as.items():
+        W[asn] = value/tot
     return W
 
 def build_fake_vuln_profile(network_state)
@@ -61,9 +65,18 @@ def modelize_opt_problem(W, ns_file):
     guardsfp = [relay in network_state.cons_rel_stats if Flag.GUARD in network_state.cons_rel_stats[relay].flags and
             not Flag.EXIT in network_state.cons_rel_stats[relay].flags]
     R = {}
-    G = -1#TODO compute
+    #Compute total G bandwidth
+    G = 0
+    for guard in guardsfp:
+        G += network_state.cons_rel_stats[guard].consweight
+    #Normalize Wgg
     Wgg = network_state.cons_bw_weights['Wgg']/network_state.cons_bwweightscale
+    
+    #Modelize the problem
     location_aware = LpProblem("Location aware selection", LpMinimize)
+    
+    #Vuln is a discrete bivariate distribution [guard][client_asn] which
+    #gives a high score if the path between client_asn and guard is bad
     
     Vuln = build_fake_vuln_profile(network_state)
 
@@ -73,12 +86,14 @@ def modelize_opt_problem(W, ns_file):
     
     location_aware = LpProblem("Optimal location-aware path selection", LpMinimize)
     # Write a minmax problem as a min of a upper bound
-    #Todo careful, the upBound depends on the scale of Vuln
+    #TODO careful, the upBound depends on the scale of Vuln
     objective = LpVariable("L_upper_bound", lowBound = 0, upBound=Wgg*G)
+    # Compute L as affine expressions involving LpVariables
     L = {}
     for guard in guardsfp:
         L[guard] = LpAffineExpression([(R[asn][guard], W[asn]) for asn in W])
     
+    #min max L*Vuln is equal to min Z with Z >= L[guard_i]*Vu
     location_aware += objective #set objective function
     for guard in guardsfp:
         location_aware += objective >=
