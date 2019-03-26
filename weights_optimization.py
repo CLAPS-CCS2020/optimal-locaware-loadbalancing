@@ -57,12 +57,12 @@ def load_and_compute_W(tor_users_to_country_file, curt_ases_file):
         W[asn] = value/tot
     return W
 
-def build_fake_vuln_profile(network_state)
+def build_fake_vuln_profile(network_state):
     pass
 
 def modelize_opt_problem(W, ns_file):
     network_state = get_network_state(ns_file)
-    guardsfp = [relay in network_state.cons_rel_stats if Flag.GUARD in network_state.cons_rel_stats[relay].flags and
+    guardsfp = [relay for relay in network_state.cons_rel_stats if Flag.GUARD in network_state.cons_rel_stats[relay].flags and
             not Flag.EXIT in network_state.cons_rel_stats[relay].flags]
     R = {}
     #Compute total G bandwidth
@@ -96,7 +96,7 @@ def modelize_opt_problem(W, ns_file):
     #min max L*Vuln is equal to min Z with Z >= L[guard_i]*Vu
     location_aware += objective #set objective function
     for guard in guardsfp:
-        location_aware += objective >=
+        location_aware += objective >=\
             LpAffineExpression([(L[guard], Vuln[guard][asn]) for asn in W])
     # Now set of constraints:
     # Location scores must distribute G*Wgg quantity
