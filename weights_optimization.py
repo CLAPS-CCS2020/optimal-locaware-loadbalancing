@@ -8,6 +8,7 @@ import pickle
 from tor_users_per_country import get_network_state
 from process_ases import GETAS_URL
 import requests
+import pdb
 
 """
 This script receives data relative to Client-to-country distribution, AS information and vulnerable
@@ -28,11 +29,11 @@ parser.add_argument("--load_problem", help="filepth with problem to solve if alr
 parser.add_argument("--network_state", help="filepath to the network state containing Tor network's data")
 
 
-def load_and_compute_W(tor_users_to_country_file, curt_ases_file):
-    with open(tor_users_to_country_file, 'rb'):
-        tor_users_to_country = pickle.load(tor_users_to_country_file)
-    with open(cust_ases_file, 'rb'):
-        cust_ases = pickle.load(cust_ases_file)
+def load_and_compute_W(tor_users_to_country_file, cust_ases_file):
+    with open(tor_users_to_country_file, 'rb') as f:
+        tor_users_to_country = pickle.load(f)
+    with open(cust_ases_file, 'rb') as f:
+        cust_ases = pickle.load(f)
     print("Files have been loaded...")
     ## Now, compute the distributions of Tor users per ASes
     tor_users_per_as = {}
@@ -42,9 +43,9 @@ def load_and_compute_W(tor_users_to_country_file, curt_ases_file):
         r = requests.get(GETAS_URL+countrycode+"&lod=1")
         if r.status_code == 200:
             allAses = r.json()
-            for asn in allAses['data'][0]['routed']:
+            for asn in allAses['data']['countries'][0]['routed']:
                 if asn in cust_ases:
-                    tor_users_per_as[asn] = tor_users_to_country[countrycode]*cust_ases[asn]
+                    tor_users_per_as[asn] = tor_users_to_country[countrycode]*cust_ases[asn].num_ipv4_addresses
                 else:
                     print("AS{} from country {} not in our dataset".format(asn, countrycode))
 
@@ -110,15 +111,13 @@ def modelize_opt_problem(W, ns_file):
     # Write problem out:
     location_aware.writeLP("location_aware.lp")
 
-
-
-
     
-if __name__ == "__name__":
+if __name__ == "__main__":
     args = parser.parse_args()
     ## Compute appropritate values and modelize the optimization problem
     if args.tor_users_to_country and args.cust_ases:
-        W, network_state = load_and_compute_W(args.tor_users_to_country, args.cust_ases)
+        W = load_and_compute_W(args.tor_users_to_country, args.cust_ases)
+        pdb.set_trace()
         
     ## Load the problem and solve() it
     elif args.load_problem:

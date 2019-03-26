@@ -102,6 +102,13 @@ def main(ns_files, args):
         descriptors.update(network_state.descriptors)
 
     country_percent = {}
+    #delete unsupported "Anonymous country" and "Satellite Provider"
+    if "a1" in countries:
+        del countries["a1"]
+    if "a2" in countries:
+        del countries["a2"]
+    if "??" in countries:
+        del countries["??"]
     tot = sum(countries.values())
     for country, value in countries.items():
         country_percent[country] = value/tot
@@ -112,7 +119,7 @@ def main(ns_files, args):
         args.start_year, args.start_month, args.start_day, args.end_year, args.end_month,
         args.end_day))
     f = open(outpath, "wb")
-    pickle.dump(countries, f, pickle.HIGHEST_PROTOCOL)
+    pickle.dump(country_percent, f, pickle.HIGHEST_PROTOCOL)
 
 
 
