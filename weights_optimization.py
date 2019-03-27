@@ -10,6 +10,7 @@ from process_ases import GETAS_URL
 import requests
 import random
 import pdb
+from stem import Flag
 
 """
 This script receives data relative to Client-to-country distribution, AS information and vulnerable
@@ -67,13 +68,18 @@ def build_fake_vuln_profile(guards, W):
         This function builds a fake one for test purpose 
     """
     Vuln = {}
+    tot = 0
     for guard in guards:
         if guard not in Vuln:
             Vuln[guard] = {}
         for asn in W:
             Vuln[guard][asn] = random.randint(0,1000)
-    
+        tot += sum(Vuln[guard].values())
+    for guard in guards:
+        for asn in W:
+            Vuln[guard][asn] = Vuln[guard][asn]/tot
     return Vuln
+
 
 def modelize_opt_problem(W, ns_file):
     network_state = get_network_state(ns_file)
@@ -82,8 +88,14 @@ def modelize_opt_problem(W, ns_file):
     R = {}
     #Compute total G bandwidth
     G = 0
+    #max_cons_weight is going to be used as an upper bound of our
+    #objective function
+    max_cons_weight = 0
     for guard in guardsfp:
         G += network_state.cons_rel_stats[guard].consweight
+        if network_state.cons_rel_stats[guard].consweight > max_cons_weight:
+            max_cons_weight = network_state.cons_rel_stats[guard].consweight
+
     #Normalize Wgg
     Wgg = network_state.cons_bw_weights['Wgg']/network_state.cons_bwweightscale
     
@@ -93,32 +105,41 @@ def modelize_opt_problem(W, ns_file):
     #Vuln is a discrete bivariate distribution [guard][client_asn] which
     #gives a high score if the path between client_asn and guard is bad
     
-    Vuln = build_fake_vuln_profile(guards, W)
+    Vuln = build_fake_vuln_profile(guardsfp, W)
 
     for asn in W:
         R[asn] = LpVariable.dicts(asn, guardsfp, lowBound = 0,
-                upBound=(network_state.cons_bw_weights['Wgg']/network_state.cons_bwweightscale)*G)
+                upBound=Wgg*G)
     
     location_aware = LpProblem("Optimal location-aware path selection", LpMinimize)
     # Write a minmax problem as a min of a upper bound
-    #TODO careful, the upBound depends on the scale of Vuln
-    objective = LpVariable("L_upper_bound", lowBound = 0, upBound=Wgg*G)
+    #
+    # The upBound value matches the worst-case scenario, where the matrix Vuln has only
+    # one non-negative real number on the guard with the highest consensus weight
+    objective = LpVariable("L_upper_bound", lowBound = 0, upBound=max_cons_weight)
     # Compute L as affine expressions involving LpVariables
+    print("Computng Affine Expressions for L, i.e., \sum W_iR_i")
     L = {}
     for guard in guardsfp:
         L[guard] = LpAffineExpression([(R[asn][guard], W[asn]) for asn in W])
-    
+    print("Done.")
+    print("Computing the objective Z with linked constraints")
     #min max L*Vuln is equal to min Z with Z >= L[guard_i]*Vu
     location_aware += objective #set objective function
     for guard in guardsfp:
         location_aware += objective >=\
-            LpAffineExpression([(L[guard], Vuln[guard][asn]) for asn in W])
+            lpSum([L[guard]*Vuln[guard][asn] for asn in W])
+    print("Done.")
     # Now set of constraints:
     # Location scores must distribute G*Wgg quantity
+    print("Computing constraints \sum R_l(i) == G*Wgg")
     for asn in W:
         location_aware += lpSum([R[asn][guard] for guard in guardsfp]) == G*Wgg
+    print("Done.")
+    print("Computing constraints L(i) <= BW_i")
     for guard in guardsfp:
         location_aware += L[guard] <= network_state.cons_rel_stats[guard].consweight
+    print("Done. Writting out .lp file")
 
     ## Missing constraint for theta-GP-Secure TODO
 
