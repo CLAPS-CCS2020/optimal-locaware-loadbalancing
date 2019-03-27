@@ -8,6 +8,7 @@ import pickle
 from tor_users_per_country import get_network_state
 from process_ases import GETAS_URL
 import requests
+import random
 
 """
 This script receives data relative to Client-to-country distribution, AS information and vulnerable
@@ -57,8 +58,21 @@ def load_and_compute_W(tor_users_to_country_file, curt_ases_file):
         W[asn] = value/tot
     return W
 
-def build_fake_vuln_profile(network_state):
-    pass
+def build_fake_vuln_profile(guards, W):
+    """
+        build a bivariate dicrete distribution for AS n and Guard i
+        with a vulnerability score
+
+        This function builds a fake one for test purpose 
+    """
+    Vuln = {}
+    for guard in guards:
+        if guard not in Vuln:
+            Vuln[guard] = {}
+        for asn in W:
+            Vuln[guard][asn] = random.randint(0,1000)
+    
+    return Vuln
 
 def modelize_opt_problem(W, ns_file):
     network_state = get_network_state(ns_file)
@@ -78,7 +92,7 @@ def modelize_opt_problem(W, ns_file):
     #Vuln is a discrete bivariate distribution [guard][client_asn] which
     #gives a high score if the path between client_asn and guard is bad
     
-    Vuln = build_fake_vuln_profile(network_state)
+    Vuln = build_fake_vuln_profile(guards, W)
 
     for asn in W:
         R[asn] = LpVariable.dicts(asn, guardsfp, lowBound = 0,
@@ -118,8 +132,8 @@ if __name__ == "__name__":
     args = parser.parse_args()
     ## Compute appropritate values and modelize the optimization problem
     if args.tor_users_to_country and args.cust_ases:
-        W, network_state = load_and_compute_W(args.tor_users_to_country, args.cust_ases)
-        
+        W = load_and_compute_W(args.tor_users_to_country, args.cust_ases)
+        modelize_opt_problem(W, args.network_state)
     ## Load the problem and solve() it
     elif args.load_problem:
         pass
