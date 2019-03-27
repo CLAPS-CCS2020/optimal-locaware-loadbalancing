@@ -129,6 +129,7 @@ def modelize_opt_problem(W, ns_file):
     for guard in guardsfp:
         location_aware += objective >=\
             lpSum([L[guard]*Vuln[guard][asn] for asn in W])
+        print("Added constrain Z >= L[{}]*Vuln[{}][{}]".format(guard, guard, asn))
     print("Done.")
     # Now set of constraints:
     # Location scores must distribute G*Wgg quantity
