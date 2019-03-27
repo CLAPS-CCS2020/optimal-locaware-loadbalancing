@@ -122,13 +122,16 @@ def modelize_opt_problem(W, ns_file):
     L = {}
     for guard in guardsfp:
         L[guard] = LpAffineExpression([(R[asn][guard], W[asn]) for asn in W])
+    Opt = {}
+    for guard in guardsfp
+        Opt[guard] = LpAffineExpression([(R[asn][guard], W[asn]*Vuln[guard][asn]) for asn in W)
     print("Done.")
     print("Computing the objective Z with linked constraints")
     #min max L*Vuln is equal to min Z with Z >= L[guard_i]*Vu
     location_aware += objective #set objective function
     for guard in guardsfp:
         location_aware += objective >=\
-            lpSum([L[guard]*Vuln[guard][asn] for asn in W])
+                Opt[guard]
         print("Added constrain Z >= L[{}]*Vuln[{}][{}]".format(guard, guard, asn))
     print("Done.")
     # Now set of constraints:
