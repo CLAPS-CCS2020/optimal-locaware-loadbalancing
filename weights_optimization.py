@@ -118,21 +118,26 @@ def modelize_opt_problem(W, ns_file):
     # one non-negative real number on the guard with the highest consensus weight
     objective = LpVariable("L_upper_bound", lowBound = 0, upBound=max_cons_weight)
     # Compute L as affine expressions involving LpVariables
+    location_aware += objective, "Z" #set objective function
     print("Computng Affine Expressions for L, i.e., \sum W_iR_i")
     L = {}
     for guard in guardsfp:
         L[guard] = LpAffineExpression([(R[asn][guard], W[asn]) for asn in W])
-    Opt = {}
-    for guard in guardsfp
-        Opt[guard] = LpAffineExpression([(R[asn][guard], W[asn]*Vuln[guard][asn]) for asn in W)
     print("Done.")
+    #Trick to avoid complexity explosion of PuLP
+    Intermediate = {}
+    print("Computing Intermediate var")
+    for guard in guardsfp:
+        Intermediate[guard] = LpVariable("Intermediate guard var {}".format(guard), lowBound = 0, upBound=max_cons_weight)
+        location_aware += Intermediate[guard] == L[guard]
+    #print("Done.")
     print("Computing the objective Z with linked constraints")
     #min max L*Vuln is equal to min Z with Z >= L[guard_i]*Vu
-    location_aware += objective #set objective function
     for guard in guardsfp:
         location_aware += objective >=\
-                Opt[guard]
-        print("Added constrain Z >= L[{}]*Vuln[{}][{}]".format(guard, guard, asn))
+                LpAffineExpression([(Intermediate[guard], Vuln[guard][asn]) for asn in W])
+                #lpSum([Intermediate[guard]*Vuln[guard][asn] for asn in W])
+        print("Added constraint Z >= \sum L[{}]*vuln[{}][asn] forall asn".format(guard, guard))
     print("Done.")
     # Now set of constraints:
     # Location scores must distribute G*Wgg quantity
