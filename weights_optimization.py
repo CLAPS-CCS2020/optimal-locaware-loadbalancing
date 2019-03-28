@@ -133,13 +133,14 @@ def modelize_opt_problem(W, ns_file, obj_function, out_dir=None):
         print("Computing Intermediate var")
         for guard in guardsfp:
             Intermediate[guard] = LpVariable("Intermediate guard var {}".format(guard), lowBound = 0, upBound=max_cons_weight)
-            location_aware += Intermediate[guard] == L[guard]
+            location_aware += Intermediate[guard] == L[guard], "Intermediate on {}".format(guard)
         #print("Done.")
         print("Computing the objective Z with linked constraints")
         #min max L*Vuln is equal to min Z with Z >= L[guard_i]*Vu
         for guard in guardsfp:
             location_aware += objective >=\
-                LpAffineExpression([(Intermediate[guard], Vuln[guard][asn]) for asn in W])
+                LpAffineExpression([(Intermediate[guard], Vuln[guard][asn]) for asn in W], name="Intermediate  \sum L[{}]*vuln[{}][asn]".format(guard, guard),\
+                "Added constraint Z >= \sum L[{}]*vuln[{}][asn] forall asn".format(guard, guard)
                 #lpSum([Intermediate[guard]*Vuln[guard][asn] for asn in W])
             print("Added constraint Z >= \sum L[{}]*vuln[{}][asn] forall asn".format(guard, guard))
     ##   min_R max_j ([\sum_{i} W(j)*R(i,j)*Vuln(i)(j)  for j in all locations])
@@ -165,11 +166,11 @@ def modelize_opt_problem(W, ns_file, obj_function, out_dir=None):
     # Location scores must distribute G*Wgg quantity
     print("Computing constraints \sum R_l(i) == G*Wgg")
     for asn in W:
-        location_aware += lpSum([R[asn][guard] for guard in guardsfp]) == G*Wgg
+        location_aware += lpSum([R[asn][guard] for guard in guardsfp]) == G*Wgg, "\sum R(i) == G*Wgg for asn {}".format(asn)
     print("Done.")
     print("Computing constraints L(i) <= BW_i")
     for guard in guardsfp:
-        location_aware += L[guard] <= network_state.cons_rel_stats[guard].consweight
+        location_aware += L[guard] <= network_state.cons_rel_stats[guard].consweight, "L(i) <= BW_i for guard {}".format(guard)
     print("Done. Writting out .lp file")
 
     ## Missing constraint for theta-GP-Secure TODO
@@ -179,7 +180,8 @@ def modelize_opt_problem(W, ns_file, obj_function, out_dir=None):
         outpath = os.path.join(out_dir, "location_aware_with_obj_{}.lp".format(obj_function))
     else:
         outpath = "location_aware.lp"
-    location_aware.writeLP(outpath)
+    #location_aware.writeLP(outpath)
+    location_aware.solve()
 
     
 if __name__ == "__main__":
