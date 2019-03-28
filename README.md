@@ -58,27 +58,46 @@ Tor network.
    dedicated to the entry position, computed as described in
    dir-spec.txt Section 3.8.4.  
    Let L = \sum W_l\*R_l  
-   Let VULN a discrete distribution of #vulnerable paths for all guards
+   Let Vuln a discrete distribution of #vulnerable paths for all guards
    computed from the intersection set of ASes in the forward and reverse
-   paths between Client_AS <-> Guard and Exit <-> Destination  
+   paths between Client_AS <-> Guard and Exit <-> Destination.
+   Vuln(i)(j) for client guard i and client AS j gives the vulnerability
+   score associated with the path between guard i and client AS j.
 
    We want to find an allocation of weights for each R_l such that:
 
-      min max(L*VULN)
+      min_R max_j ( [\sum_{j} L(i)*Vuln(i)(j)  for i in all guards])
+  
+   alternatively, the following optimization functions are considered:
+      
+      min_R max_j ([\sum_{i} W(j)*R(i,j)*Vuln(i)(j)  for j in all locations])
+      
+      minimize the total vulnerability experienced by clients as a
+      whole:
+      min_R (\sum_i \sum_j W(j)*R(i,j)*Vuln(i,j))
+      
+      minimize the largest (over all client locations j) *expected*
+      vulnerability:
+  
+      min max_j (\sum_i R(i,j)*Vuln(i,j)) 
    
    under constraints:
-
-      1) for l in AllLocations:
+      
+      1) for l in allLocation:
+           for i in AllGuards:
+             R_l(i) >= 0
+      
+      2) for l in AllLocations:
           \sum R_l(i) = G*Wgg
       
-      2) for i in allGuards:
+      3) for i in allGuards:
           L(i) <= BW_i
 
-      3) for l in AllLocations:
-          max_l max_i R_l(i)/relCost(i) <= \theta
+      4) for l in AllLocations:
+          max_l max_i R_l(i)/(\sum_{j}R_l(j)*relCost(i)) <= \theta
   
-  Constraints 1) and 2) guarantee to preserve current Tor's
-load-balancing system. Constraint 3) trade-off location-aware benefit with
+  Constraints 1), 2) and 3) guarantee to preserve current Tor's
+load-balancing system. Constraint 4) trade-off location-aware benefit with
 defense against guard-placement attacks, as Aaron pointed out in his
 07.03.19 email.  
 
