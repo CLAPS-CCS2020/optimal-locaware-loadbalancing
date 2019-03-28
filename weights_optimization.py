@@ -139,7 +139,7 @@ def modelize_opt_problem(W, ns_file, obj_function, out_dir=None):
         #min max L*Vuln is equal to min Z with Z >= L[guard_i]*Vu
         for guard in guardsfp:
             location_aware += objective >=\
-                LpAffineExpression([(Intermediate[guard], Vuln[guard][asn]) for asn in W], name="Intermediate  \sum L[{}]*vuln[{}][asn]".format(guard, guard),\
+                LpAffineExpression([(Intermediate[guard], Vuln[guard][asn]) for asn in W], name="Intermediate  \sum L[{}]*vuln[{}][asn]".format(guard, guard)),\
                 "Added constraint Z >= \sum L[{}]*vuln[{}][asn] forall asn".format(guard, guard)
                 #lpSum([Intermediate[guard]*Vuln[guard][asn] for asn in W])
             print("Added constraint Z >= \sum L[{}]*vuln[{}][asn] forall asn".format(guard, guard))
@@ -177,11 +177,13 @@ def modelize_opt_problem(W, ns_file, obj_function, out_dir=None):
 
     # Write problem out:
     if out_dir:
-        outpath = os.path.join(out_dir, "location_aware_with_obj_{}.lp".format(obj_function))
+        outpath = os.path.join(out_dir, "location_aware_with_obj_{}.pickle".format(obj_function))
     else:
-        outpath = "location_aware.lp"
+        outpath = "location_aware.pickle"
     #location_aware.writeLP(outpath)
-    location_aware.solve()
+    with open(outpath, "wb") as f:
+        pickle.dump(location_aware, f, pickle.HIGHEST_PROTOCOL)
+    #location_aware.solve()
 
     
 if __name__ == "__main__":
@@ -192,4 +194,7 @@ if __name__ == "__main__":
         modelize_opt_problem(W, args.network_state, args.obj_function, args.out_dir)
     ## Load the problem and solve() it
     elif args.load_problem:
-        pass
+        with open(args.load_problem, "rb") as f:
+            location_aware = pickle.load(f)
+            location_aware.solve(pulp.PULP_CBC_CMD(msg=1, threads=24))
+            pdb.set_trace()
