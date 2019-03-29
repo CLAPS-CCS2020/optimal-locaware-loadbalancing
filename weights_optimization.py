@@ -187,7 +187,6 @@ def modelize_opt_problem(W, ns_file, obj_function, out_dir=None, reduced_as_to=N
     print("Computing constraints L(i) <= BW_i")
     for guard in guardsfp:
         location_aware += L[guard] <= network_state.cons_rel_stats[guard].consweight, "L(i) <= BW_i for guard {}".format(guard)
-    print("Done. Writting out .lp file")
 
     ## Missing constraint for theta-GP-Secure TODO
         
@@ -198,18 +197,21 @@ def modelize_opt_problem(W, ns_file, obj_function, out_dir=None, reduced_as_to=N
         for guard in guardsfp:
             location_aware += R[asn][guard] <= 2*network_state.cons_rel_stats[guard].consweight
 
+    print("Done. Writting out pickle file")
 
     # Write problem out:
     if out_dir:
         if reduced_as_to or reduced_guards_to:
-            outpath = os.path.join(out_dir, "location_aware_with_obj_{}_reducedas_{}_reducedguard_{}.pickle".format(obj_function, reduced_as_to,reduced_guards_to))
+            outpath = os.path.join(out_dir, "location_aware_with_obj_{}_reducedas_{}_reducedguard_{}".format(obj_function, reduced_as_to,reduced_guards_to))
         else:
-            outpath = os.path.join(out_dir, "location_aware_with_obj_{}.pickle".format(obj_function))
+            outpath = os.path.join(out_dir, "location_aware_with_obj_{}".format(obj_function))
     else:
         outpath = "location_aware.pickle"
-    #location_aware.writeLP(outpath)
-    with open(outpath, "wb") as f:
+    with open(outpath+".pickle", "wb") as f:
         pickle.dump(location_aware, f, pickle.HIGHEST_PROTOCOL)
+
+    print("Done. Writting out .lp file")
+    location_aware.writeLP(outpath+".lp")
     #location_aware.solve()
 
     
