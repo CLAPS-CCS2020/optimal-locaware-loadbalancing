@@ -6,8 +6,7 @@ from slim_desc import ClusterRouter
 from tor_users_per_country import get_network_state
 import requests
 import time as dtime
-from process_consensuses import timestamp
-
+from stem import Flag
 """
 
 This file takes an network state as an input, and cluster guard relays
@@ -22,7 +21,6 @@ parser.add_argument("--out", help="out dir to store the clustered guards", requi
 RIPE_BGP_INFO = "https://stat.ripe.net/data/bgp-state/data.json?resource="
 
 def main(args):
-    
     clusters = {} # key: string of prefix IP, val: slim_desc.ClusterRouter
     network_state = get_network_state(args.ns_file)
     descriptors = network_state.descriptors
@@ -31,7 +29,7 @@ def main(args):
     #building clusters
     for guard in guardsfp:
         ipv4_address = descriptors[guard].address
-        r = requests.get(RIPE_BGP_INFO+ipv4_address+"&timestamp="+timestamp(network_state.cons_valid_after))
+        r = requests.get(RIPE_BGP_INFO+ipv4_address+"&timestamp="+str(network_state.cons_valid_after))
         if r.status_code > 200:
             for _ in range(0,2):
                 print("Status code of previous request: {} - Waiting 5 seconds and retry".format(r.status_code))
@@ -45,12 +43,15 @@ def main(args):
         if prefix in clusters:
             clusters[prefix].addRouter(network_state.cons_rel_stats[guard])
         else:
-            asn = int(bgpinfo['data']['bgp_state'][0]['path'][-1])
-            clusters[prefix] = clusterRouter(asn, prefix)
-            clusters[prefix].addRouter(network_state.cons_rel_states[guard])
+            if len(bgpinfo['data']['bgp_state']) == 0:
+                asn = "-1"
+            else:
+                asn = int(bgpinfo['data']['bgp_state'][0]['path'][-1])
+            clusters[prefix] = ClusterRouter(asn, prefix)
+            clusters[prefix].addRouter(network_state.cons_rel_stats[guard])
     
     print("We had {} guards before and now {} clusters".format(len(guardsfp), len(list(clusters.keys()))))
-    outpath = os.path.join(args.out, "clusters_"+network_state.cons_valid_after.strftime('%Y-%m-%d-%H-%M-%S'))
+    outpath = os.path.join(args.out, "clusters_"+str(network_state.cons_valid_after))
     with open(outpath, 'wb') as f:
         pickle.dump(clusters, f, pickle.HIGHEST_PROTOCOL)
 

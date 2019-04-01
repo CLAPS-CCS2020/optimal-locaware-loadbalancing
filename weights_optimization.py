@@ -212,6 +212,8 @@ def modelize_opt_problem(W, ns_file, obj_function, out_dir=None, reduced_as_to=N
 
     print("Done. Writting out .lp file")
     location_aware.writeLP(outpath+".lp")
+    print("Done. Writtin out .mps file")
+    location_aware.writeMPS(outpath+".mps")
     #location_aware.solve()
 
     
@@ -225,7 +227,7 @@ if __name__ == "__main__":
     elif args.load_problem:
         with open(args.load_problem, "rb") as f:
             location_aware = pickle.load(f)
-            location_aware.solve(pulp.PULP_CBC_CMD(msg=1, threads=24))
+            location_aware.solve(pulp.PULP_CBC_CMD(msg=1, threads=4))
             pdb.set_trace()
             for v in location_aware.variables():
                 print(v.name, "=", v.varValue)
