@@ -26,6 +26,7 @@ parser = argparse.ArgumentParser(description="")
 parser.add_argument("--tor_users_to_country", help="path to the pickle file containing the distribution of Tor users per country")
 parser.add_argument("--cust_ases", help="path to the pickle file containing the distribution of IPs per customer AS")
 parser.add_argument("--obj_function", type=int, help="Choice of objective function")
+parser.add_argument("--cluster_file", type=str, required=True, "Pickle file of clustered guards")
 parser.add_argument("--reduced_as_to", type=int, help="for test purpose, gives the number of ASes to keep")
 parser.add_argument("--reduced_guards_to", type=int, help="for test purpose, gives the number of guards to keep")
 parser.add_argument("--load_problem", help="filepth with problem to solve if already computed")
@@ -97,10 +98,12 @@ def build_fake_vuln_profile(guards, W):
     return Vuln
 
 
-def modelize_opt_problem(W, ns_file, obj_function, out_dir=None, reduced_as_to=None, reduced_guards_to=None):
+def modelize_opt_problem(W, ns_file, obj_function, cluster_filer, out_dir=None, reduced_as_to=None, reduced_guards_to=None):
     network_state = get_network_state(ns_file)
-    guardsfp = [relay for relay in network_state.cons_rel_stats if Flag.GUARD in network_state.cons_rel_stats[relay].flags and
-            not Flag.EXIT in network_state.cons_rel_stats[relay].flags]
+    with open(cluster_file, "rb") as f:
+        clusters = pickle.load(f)
+    # guardsfp = [relay for relay in network_state.cons_rel_stats if Flag.GUARD in network_state.cons_rel_stats[relay].flags and
+            # not Flag.EXIT in network_state.cons_rel_stats[relay].flags]
     if reduced_guards_to:
         guardsfp = guardsfp[0:reduced_guards_to]
     R = {}
@@ -109,11 +112,11 @@ def modelize_opt_problem(W, ns_file, obj_function, out_dir=None, reduced_as_to=N
     #max_cons_weight is going to be used as an upper bound of our
     #objective function
     max_cons_weight = 0
-    for guard in guardsfp:
-        G += network_state.cons_rel_stats[guard].consweight
-        if network_state.cons_rel_stats[guard].consweight > max_cons_weight:
-            max_cons_weight = network_state.cons_rel_stats[guard].consweight
-
+    for prefix in clusters:
+        G += clusters[prefix].tot_consweight
+        if clusters[prefix].tot_consweight > max_cons_weight:
+            max_cons_weight = clusters[prefix].tot_consweight
+    prefixes = list(clusters.keys())
     #Normalize Wgg
     Wgg = network_state.cons_bw_weights['Wgg']/network_state.cons_bwweightscale
     
@@ -123,10 +126,10 @@ def modelize_opt_problem(W, ns_file, obj_function, out_dir=None, reduced_as_to=N
     #Vuln is a discrete bivariate distribution [guard][client_asn] which
     #gives a high score if the path between client_asn and guard is bad
     
-    Vuln = build_fake_vuln_profile(guardsfp, W)
+    Vuln = build_fake_vuln_profile(prefixes, W)
 
     for asn in W:
-        R[asn] = LpVariable.dicts(asn, guardsfp, lowBound = 0,
+        R[asn] = LpVariable.dicts(asn, prefixes, lowBound = 0,
                 upBound=Wgg*G)
     
     location_aware = LpProblem("Optimal location-aware path selection", LpMinimize)
@@ -138,8 +141,8 @@ def modelize_opt_problem(W, ns_file, obj_function, out_dir=None, reduced_as_to=N
     # Compute L as affine expressions involving LpVariables
     print("Computing Affine Expressions for L, i.e., \sum W_iR_i")
     L = {}
-    for guard in guardsfp:
-        L[guard] = LpAffineExpression([(R[asn][guard], W[asn]) for asn in W], name="L({})".format(guard))
+    for prefix_guard in prefixes:
+        L[prefix_guard] = LpAffineExpression([(R[asn][prefix_guard], W[asn]) for asn in W], name="L({})".format(prefix_guard))
     print("Done.")
     ##  min_R max_j ( [\sum_{j} L(i)*Vuln(i)(j)  for i in all guards])
     if obj_function == 1:
@@ -147,46 +150,46 @@ def modelize_opt_problem(W, ns_file, obj_function, out_dir=None, reduced_as_to=N
         #Trick to avoid complexity explosion of PuLP
         Intermediate = {}
         print("Computing Intermediate var")
-        for guard in guardsfp:
-            Intermediate[guard] = LpVariable("Intermediate guard var {}".format(guard), lowBound = 0, upBound=max_cons_weight)
-            location_aware += Intermediate[guard] == L[guard], "Intermediate on {}".format(guard)
+        for prefix_guard in prefixes:
+            Intermediate[prefix_guard] = LpVariable("Intermediate guard var {}".format(prefix_guard), lowBound = 0, upBound=max_cons_weight)
+            location_aware += Intermediate[prefix_guard] == L[prefix_guard], "Intermediate on {}".format(prefix_guard)
         #print("Done.")
         print("Computing the objective Z with linked constraints")
         #min max L*Vuln is equal to min Z with Z >= L[guard_i]*Vu
-        for guard in guardsfp:
+        for prefix_guard in prefixes:
             location_aware += objective >=\
-                LpAffineExpression([(Intermediate[guard], Vuln[guard][asn]) for asn in W], name="Intermediate  \sum L[{}]*vuln[{}][asn]".format(guard, guard)),\
-                "Added constraint Z >= \sum L[{}]*vuln[{}][asn] forall asn".format(guard, guard)
+                LpAffineExpression([(Intermediate[prefix_guard], Vuln[prefix_guard][asn]) for asn in W], name="Intermediate  \sum L[{}]*vuln[{}][asn]".format(prefix_guard, prefix_guard)),\
+                "Added constraint Z >= \sum L[{}]*vuln[{}][asn] forall asn".format(prefix_guard, prefix_guard)
                 #lpSum([Intermediate[guard]*Vuln[guard][asn] for asn in W])
-            print("Added constraint Z >= \sum L[{}]*vuln[{}][asn] forall asn".format(guard, guard))
+            print("Added constraint Z >= \sum L[{}]*vuln[{}][asn] forall asn".format(prefix_guard, prefix_guard))
     ##   min_R max_j ([\sum_{i} W(j)*R(i,j)*Vuln(i)(j)  for j in all locations])
     elif obj_function == 2:
         location_aware += objective, "Z" #set objective function
         for asn in W:
             location_aware += objective >= \
-                LpAffineExpression([(R[asn][guard], W[asn]*Vuln[guard][asn]) for guard in guardsfp])
-            print("Added constraint Z >= \sum_i W({})*R[{}][{}]*Vuln[{}][{}]".format(asn, asn, guard, guard, asn))
+                LpAffineExpression([(R[asn][prefix_guard], W[asn]*Vuln[prefix_guard][asn]) for prefix_guard in prefixes])
+            print("Added constraint Z >= \sum_i W({})*R[{}][prefix]*Vuln[prefix][{}] forall prefix".format(asn, asn, asn))
     ##   min_R (\sum_i \sum_j W(j)*R(i,j)*Vuln(i,j))
     elif obj_function == 3:
         print("Computing the lpSum of LpAffineExpressions as an objective function... (this can take time)")
-        location_aware += lpSum([LpAffineExpression([(R[asn][guard], W[asn]*Vuln[guard][asn]) for asn in W]) for guard in guardsfp]), "Z"
+        location_aware += lpSum([LpAffineExpression([(R[asn][prefix_guard], W[asn]*Vuln[prefix_guard][asn]) for asn in W]) for prefix_guard in prefixes]), "Z"
     ##   min max_j (\sum_i R(i,j)*Vuln(i,j)) 
     elif obj_function == 4:
         location_aware += objective, "Z" #set objective function
         for asn in W:
             location_aware += objective >= \
-                    LpAffineExpression([(R[asn][guard], Vuln[guard][asn]) for guard in guardsfp])
-            print("Added constraint Z >= R[{}][{}]*Vuln[{}][{}]".format(asn, guard, guard, asn))
+                    LpAffineExpression([(R[asn][prefix_guard], Vuln[prefix_guard][asn]) for prefix_guard in prefixes])
+            print("Added constraint Z >= R[{}][prefix_guard]*Vuln[prefix_guard][{}] forall prefixes".format(asn, asn))
     print("Done.")
     # Now set of constraints:
     # Location scores must distribute G*Wgg quantity
     print("Computing constraints \sum R_l(i) == G*Wgg")
     for asn in W:
-        location_aware += lpSum([R[asn][guard] for guard in guardsfp]) == G*Wgg, "\sum R(i) == G*Wgg for asn {}".format(asn)
+        location_aware += lpSum([R[asn][prefix_guard] for prefix_guard in prefixes]) == G*Wgg, "\sum R(i) == G*Wgg for asn {}".format(asn)
     print("Done.")
     print("Computing constraints L(i) <= BW_i")
-    for guard in guardsfp:
-        location_aware += L[guard] <= network_state.cons_rel_stats[guard].consweight, "L(i) <= BW_i for guard {}".format(guard)
+    for prefix_guard in prefixes:
+        location_aware += L[prefix_guard] <= clusters[prefix_guard].tot_consweight, "L(i) <= BW_i for prefix_guard {}".format(prefix_guard)
 
     ## Missing constraint for theta-GP-Secure TODO
         
@@ -194,8 +197,8 @@ def modelize_opt_problem(W, ns_file, obj_function, out_dir=None, reduced_as_to=N
     #No relay gets more than 2 times its original selection probability
     print("No relay gets more than 2 times its original selection probability:")
     for asn in W:
-        for guard in guardsfp:
-            location_aware += R[asn][guard] <= 2*network_state.cons_rel_stats[guard].consweight
+        for prefix_guard in prefixes:
+            location_aware += R[asn][prefix_guard] <= 2*clusters[prefix_guard].consweight
 
     print("Done. Writting out pickle file")
 
@@ -222,7 +225,7 @@ if __name__ == "__main__":
     ## Compute appropritate values and modelize the optimization problem
     if args.tor_users_to_country and args.cust_ases:
         W = load_and_compute_W(args.tor_users_to_country, args.cust_ases, args.reduced_as_to)
-        modelize_opt_problem(W, args.network_state, args.obj_function, args.out_dir, args.reduced_as_to, args.reduced_guards_to)
+        modelize_opt_problem(W, args.network_state, args.obj_function, args.cluster_file, args.out_dir, args.reduced_as_to, args.reduced_guards_to)
     ## Load the problem and solve() it
     elif args.load_problem:
         with open(args.load_problem, "rb") as f:
