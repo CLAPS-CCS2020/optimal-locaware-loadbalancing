@@ -11,6 +11,22 @@ class RouterStatusEntry:
         self.flags = flags
         self.consweight = consweight
 
+class ClusterRouter:
+
+    def  __init__(self, asn, prefix):
+        self.asn = asn
+        self.prefix = prefix
+        self.tot_consweight = 0
+        self.routerlist = {}
+
+    def addRouter(self, router):
+        assert(isinstance(router, RouterStatusEntry))
+        if router.fprint not in self.routerlist:
+            routerlist[router.fprint] = router
+            self.tot_consweight += router.consweight
+
+
+
 class ServerDescriptor:
 
     def __init__(self, fprint, hibernating, nickname, family, address,
