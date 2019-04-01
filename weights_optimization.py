@@ -26,7 +26,7 @@ parser = argparse.ArgumentParser(description="")
 parser.add_argument("--tor_users_to_country", help="path to the pickle file containing the distribution of Tor users per country")
 parser.add_argument("--cust_ases", help="path to the pickle file containing the distribution of IPs per customer AS")
 parser.add_argument("--obj_function", type=int, help="Choice of objective function")
-parser.add_argument("--cluster_file", type=str, required=True, "Pickle file of clustered guards")
+parser.add_argument("--cluster_file", type=str, required=True, help="Pickle file of clustered guards")
 parser.add_argument("--reduced_as_to", type=int, help="for test purpose, gives the number of ASes to keep")
 parser.add_argument("--reduced_guards_to", type=int, help="for test purpose, gives the number of guards to keep")
 parser.add_argument("--load_problem", help="filepth with problem to solve if already computed")
@@ -73,7 +73,6 @@ def load_and_compute_W(tor_users_to_country_file, cust_ases_file, reduced_as_to=
     tot = sum(tor_users_per_as.values())
     for asn, value in tor_users_per_as.items():
         W[asn] = value/tot
-    pdb.set_trace()
     return W
 
 def build_fake_vuln_profile(guards, W):
@@ -98,7 +97,7 @@ def build_fake_vuln_profile(guards, W):
     return Vuln
 
 
-def modelize_opt_problem(W, ns_file, obj_function, cluster_filer, out_dir=None, reduced_as_to=None, reduced_guards_to=None):
+def modelize_opt_problem(W, ns_file, obj_function, cluster_file, out_dir=None, reduced_as_to=None, reduced_guards_to=None):
     network_state = get_network_state(ns_file)
     with open(cluster_file, "rb") as f:
         clusters = pickle.load(f)
@@ -198,7 +197,7 @@ def modelize_opt_problem(W, ns_file, obj_function, cluster_filer, out_dir=None, 
     print("No relay gets more than 2 times its original selection probability:")
     for asn in W:
         for prefix_guard in prefixes:
-            location_aware += R[asn][prefix_guard] <= 2*clusters[prefix_guard].consweight
+            location_aware += R[asn][prefix_guard] <= 2*clusters[prefix_guard].tot_consweight
 
     print("Done. Writting out pickle file")
 
