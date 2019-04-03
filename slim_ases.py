@@ -40,6 +40,17 @@ class ASCust:
                 if countit:
                     self.num_ipv4_addresses+=network.num_addresses
 
+    def does_it_belong_here(self, ipv4_address):
+        """
+            check whether ipv4_address belongs
+            to one of self.prefixes_originated
+        """
+        ipv4 = ipaddress.IPv4Address(ipv4_address)
+        for net in self.prefixes_originated:
+            if ipv4 in net:
+                return True
+        return False
+
 
 
 
