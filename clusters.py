@@ -40,7 +40,8 @@ def main(args):
                     if r.status_code < 300:
                         break
                 if r.status_code > 200:
-                    raise ValueError("Something went wrong with the server")
+                    print("Something went wrong with this req: {}".format(r.json()))
+                    continue
             bgpinfo = r.json()
             prefix = bgpinfo['data']['resource']
             if prefix in clusters:
@@ -64,17 +65,23 @@ def main(args):
                     if r.status_code < 300:
                         break
                 if r.status_code > 200:
-                    raise ValueError("Something went wrong with the server")
+                    print("Something went wrong with this req: {}".format(r.json()))
+                    continue
             prefixinfo = r.json()
             asns = prefixinfo['data']['asns']
             if len(asns) > 1:
-                print("shit, it seems that this IP originates from several ASes {}, what do we do?".format(asns)
-                        
-            if asns[0] in clusters:
-                clusters[asns[0]].addRouter(network_state.cons_rel_stats[guard])
+                print("shit, it seems that this IP originates from several ASes {}, what do we do?".format(asns))
+                asn = asns[0]['asn']
+            elif len(asns) == 0:
+                print("Shit, it seems that we don't have information regarding this IP {}.. What do we do?".format(ipv4_address))
+                asn = -1
             else:
-                clusters[asns[0]] = ClusterRouter(asn[0], None)
-                clusters[asns[0]].addRouter(network_state.cons_rel_stats[guard])
+                asn = asns[0]['asn']
+            if asn in clusters:
+                clusters[asn].addRouter(network_state.cons_rel_stats[guard])
+            else:
+                clusters[asn] = ClusterRouter(asn, None)
+                clusters[asn].addRouter(network_state.cons_rel_stats[guard])
 
 
     print("We had {} guards before and now {} clusters".format(len(guardsfp), len(list(clusters.keys()))))
@@ -85,7 +92,7 @@ def main(args):
 if __name__ == "__main__":
 
     args = parser.parse_args()
-    if args.cluster_type is "AS" or args.cluster_type is "prefix":
+    if args.cluster_type == "AS" or args.cluster_type == "prefix":
         sys.exit(main(args))
     else:
-        print("Unsupported cluster type: {}, see help".format(args.cluster_type)
+        print("Unsupported cluster type: {}, see help".format(args.cluster_type))
