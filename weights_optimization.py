@@ -178,7 +178,7 @@ def modelize_opt_problem(W, ns_file, obj_function, cluster_file, out_dir=None, p
                 "Added constraint Z >= \sum L[{}]*pmatrix[loc][{}] forall loc".format(prefix_guard, prefix_guard)
                 #lpSum([Intermediate[guard]*pmatrix[guard][loc] for loc in W])
             print("Added constraint Z >= \sum L[{}]*pmatrix[loc][{}] forall loc".format(prefix_guard, prefix_guard))
-    ##   min_R max_j ([\sum_{i} W(j)*R(i,j)*pmatrix(i)(j)  for j in all locations])
+    ##   min_R max_j ([\sum_{i} W(j)*R(j,i)*pmatrix(j)(i)  for j in all locations])
     elif obj_function == 2:
         location_aware += objective, "Z" #set objective function
         for loc in W:
