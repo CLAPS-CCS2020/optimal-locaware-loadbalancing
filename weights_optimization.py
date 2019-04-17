@@ -111,7 +111,7 @@ def build_fake_pmatrix_profile(guards, W):
     return pmatrix
 
 
-def modelize_opt_problem(W, ns_file, obj_function, cluster_file, out_dir=None, pmatrix=None, reduced_as_to=None, reduced_guards_to=None):
+def modelize_opt_problem(W, ns_file, obj_function, cluster_file, out_dir=None, pmatrix_file=None, reduced_as_to=None, reduced_guards_to=None):
     network_state = get_network_state(ns_file)
     with open(cluster_file, "rb") as f:
         clusters = pickle.load(f)
@@ -239,8 +239,8 @@ def modelize_opt_problem(W, ns_file, obj_function, cluster_file, out_dir=None, p
 if __name__ == "__main__":
     args = parser.parse_args()
     ## Compute appropritate values and modelize the optimization problem
-    if args.tor_users_to_location and args.cust_locations:
-        if args.picke:
+    if args.tor_users_to_location:
+        if args.pickle and args.cust_locations:
             W = load_and_compute_W(args.tor_users_to_location, args.cust_locations, args.reduced_as_to)
         elif args.json:
             W = load_and_compute_W_from_citymap(args.tor_users_to_location)
