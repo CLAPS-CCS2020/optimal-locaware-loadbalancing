@@ -122,13 +122,6 @@ def modelize_opt_problem(W, ns_file, obj_function, cluster_file=None, out_dir=No
     if reduced_guards_to:
         guardsfp = guardsfp[0:reduced_guards_to]
     
-    #pmatrix is a discrete bivariate distribution [guard][location] which
-    #gives a high score if the path between location and guard is bad
-    if not pmatrix_file:
-        pmatrix = build_fake_pmatrix_profile(prefixes, W)
-    else:
-        with open(pmatrix_file, 'r') as f:
-            pmatrix = json.load(f)
 
     R = {}
     #Compute total G bandwidth
@@ -140,7 +133,16 @@ def modelize_opt_problem(W, ns_file, obj_function, cluster_file=None, out_dir=No
         G += clusters[prefix].tot_consweight
         if clusters[prefix].tot_consweight > max_cons_weight:
             max_cons_weight = clusters[prefix].tot_consweight
+    
     prefixes = list(clusters.keys())
+    #pmatrix is a discrete bivariate distribution [guard][location] which
+    #gives a high score if the path between location and guard is bad
+    if not pmatrix_file:
+        pmatrix = build_fake_pmatrix_profile(prefixes, W)
+    else:
+        with open(pmatrix_file, 'r') as f:
+            pmatrix = json.load(f)
+    
     #Normalize Wgg
     Wgg = network_state.cons_bw_weights['Wgg']/network_state.cons_bwweightscale
     

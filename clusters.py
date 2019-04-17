@@ -27,9 +27,16 @@ def main(args):
     network_state = get_network_state(args.ns_file)
     descriptors = network_state.descriptors
     guardsfp = [relay for relay in network_state.cons_rel_stats if Flag.GUARD in network_state.cons_rel_stats[relay].flags and
-            not Flag.EXIT in network_state.cons_rel_stats[relay].flags]
+            not Flag.EXIT in network_state.cons_rel_stats[relay].flags and
+            Flag.VALID in network_state.cons_rel_stats[relay].flags and
+            Flag.RUNNING in network_state.cons_rel_stats[relay].flags]
     #building clusters
-    if args.cluster_type == "prefix":
+    if args.cluster_type == "identity":
+        for guard in guardfp:
+            clusters[descriptors[guard].address] = ClusterRouter(None, descriptors[guard].address)
+            clusters[descriptors[guard].address].addRouter(network_state.cons_rel_stats[guard])
+
+    elif args.cluster_type == "prefix":
         for guard in guardsfp:
             ipv4_address = descriptors[guard].address
             r = requests.get(RIPE_BGP_INFO+ipv4_address+"&timestamp="+str(network_state.cons_valid_after))
