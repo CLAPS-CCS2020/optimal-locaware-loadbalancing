@@ -11,9 +11,11 @@ class RouterStatusEntry:
         self.flags = flags
         self.consweight = consweight
 
+##TODO rewrite ClusterRouter to something more flexible
+##
 class ClusterRouter:
 
-    def  __init__(self, asn, prefix):
+    def  __init__(self, asn=None, prefix=None):
         self.asn = asn
         self.prefix = prefix
         self.tot_consweight = 0
