@@ -111,14 +111,25 @@ def build_fake_pmatrix_profile(guards, W):
     return pmatrix
 
 
-def modelize_opt_problem(W, ns_file, obj_function, cluster_file, out_dir=None, pmatrix=None, reduced_as_to=None, reduced_guards_to=None):
+def modelize_opt_problem(W, ns_file, obj_function, cluster_file=None, out_dir=None, pmatrix=None, reduced_as_to=None, reduced_guards_to=None):
     network_state = get_network_state(ns_file)
-    with open(cluster_file, "rb") as f:
-        clusters = pickle.load(f)
+    
+    if cluster_file:
+        with open(cluster_file, "rb") as f:
+            clusters = pickle.load(f)
     # guardsfp = [relay for relay in network_state.cons_rel_stats if Flag.GUARD in network_state.cons_rel_stats[relay].flags and
             # not Flag.EXIT in network_state.cons_rel_stats[relay].flags]
     if reduced_guards_to:
         guardsfp = guardsfp[0:reduced_guards_to]
+    
+    #pmatrix is a discrete bivariate distribution [guard][location] which
+    #gives a high score if the path between location and guard is bad
+    if not pmatrix_file:
+        pmatrix = build_fake_pmatrix_profile(prefixes, W)
+    else:
+        with open(pmatrix_file, 'r') as f:
+            pmatrix = json.load(f)
+
     R = {}
     #Compute total G bandwidth
     G = 0
@@ -136,14 +147,6 @@ def modelize_opt_problem(W, ns_file, obj_function, cluster_file, out_dir=None, p
     #Modelize the problem
     location_aware = LpProblem("Location aware selection", LpMinimize)
     
-    #pmatrix is a discrete bivariate distribution [guard][location] which
-    #gives a high score if the path between location and guard is bad
-    if not pmatrix_file:
-        pmatrix = build_fake_pmatrix_profile(prefixes, W)
-    else:
-        with open(pmatrix_file, 'r') as f:
-            pmatrix = json.load(f)
-
     for loc in W:
         R[loc] = LpVariable.dicts(loc, prefixes, lowBound = 0,
                 upBound=Wgg*G)
