@@ -113,12 +113,15 @@ def build_fake_pmatrix_profile(guards, W):
 
 def modelize_opt_problem(W, ns_file, obj_function, cluster_file, out_dir=None, pmatrix_file=None, reduced_as_to=None, reduced_guards_to=None):
     network_state = get_network_state(ns_file)
+    
     with open(cluster_file, "rb") as f:
         clusters = pickle.load(f)
     # guardsfp = [relay for relay in network_state.cons_rel_stats if Flag.GUARD in network_state.cons_rel_stats[relay].flags and
             # not Flag.EXIT in network_state.cons_rel_stats[relay].flags]
     if reduced_guards_to:
         guardsfp = guardsfp[0:reduced_guards_to]
+    
+
     R = {}
     #Compute total G bandwidth
     G = 0
@@ -129,13 +132,8 @@ def modelize_opt_problem(W, ns_file, obj_function, cluster_file, out_dir=None, p
         G += clusters[prefix].tot_consweight
         if clusters[prefix].tot_consweight > max_cons_weight:
             max_cons_weight = clusters[prefix].tot_consweight
+    
     prefixes = list(clusters.keys())
-    #Normalize Wgg
-    Wgg = network_state.cons_bw_weights['Wgg']/network_state.cons_bwweightscale
-    
-    #Modelize the problem
-    location_aware = LpProblem("Location aware selection", LpMinimize)
-    
     #pmatrix is a discrete bivariate distribution [guard][location] which
     #gives a high score if the path between location and guard is bad
     if not pmatrix_file:
@@ -143,7 +141,13 @@ def modelize_opt_problem(W, ns_file, obj_function, cluster_file, out_dir=None, p
     else:
         with open(pmatrix_file, 'r') as f:
             pmatrix = json.load(f)
-
+    
+    #Normalize Wgg
+    Wgg = network_state.cons_bw_weights['Wgg']/network_state.cons_bwweightscale
+    
+    #Modelize the problem
+    location_aware = LpProblem("Location aware selection", LpMinimize)
+    
     for loc in W:
         R[loc] = LpVariable.dicts(loc, prefixes, lowBound = 0,
                 upBound=Wgg*G)
@@ -178,7 +182,7 @@ def modelize_opt_problem(W, ns_file, obj_function, cluster_file, out_dir=None, p
                 "Added constraint Z >= \sum L[{}]*pmatrix[loc][{}] forall loc".format(prefix_guard, prefix_guard)
                 #lpSum([Intermediate[guard]*pmatrix[guard][loc] for loc in W])
             print("Added constraint Z >= \sum L[{}]*pmatrix[loc][{}] forall loc".format(prefix_guard, prefix_guard))
-    ##   min_R max_j ([\sum_{i} W(j)*R(i,j)*pmatrix(i)(j)  for j in all locations])
+    ##   min_R max_j ([\sum_{i} W(j)*R(j,i)*pmatrix(j)(i)  for j in all locations])
     elif obj_function == 2:
         location_aware += objective, "Z" #set objective function
         for loc in W:
