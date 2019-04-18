@@ -32,9 +32,9 @@ def main(args):
             Flag.RUNNING in network_state.cons_rel_stats[relay].flags]
     #building clusters
     if args.cluster_type == "identity":
-        for guard in guardfp:
-            clusters[descriptors[guard].address] = ClusterRouter(None, descriptors[guard].address)
-            clusters[descriptors[guard].address].addRouter(network_state.cons_rel_stats[guard])
+        for guard in guardsfp:
+            clusters[guard] = ClusterRouter(None, descriptors[guard].address)
+            clusters[guard].addRouter(network_state.cons_rel_stats[guard])
 
     elif args.cluster_type == "prefix":
         for guard in guardsfp:
@@ -99,7 +99,7 @@ def main(args):
 if __name__ == "__main__":
 
     args = parser.parse_args()
-    if args.cluster_type == "AS" or args.cluster_type == "prefix":
+    if args.cluster_type == "AS" or args.cluster_type == "prefix" or args.cluster_type == "identity":
         sys.exit(main(args))
     else:
         print("Unsupported cluster type: {}, see help".format(args.cluster_type))

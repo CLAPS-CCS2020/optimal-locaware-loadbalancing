@@ -1,4 +1,3 @@
-
 import sys, os
 import argparse
 from slim_ases import *
@@ -12,6 +11,7 @@ import random
 import pdb
 from stem import Flag
 import json
+import math
 
 """
 This script receives data relative to Client-to-country distribution, AS information and pmatrixerable
@@ -29,7 +29,7 @@ parser.add_argument("--pickle", action="store_true", default=False)
 parser.add_argument("--json", action="store_true", default=False)
 parser.add_argument("--cust_locations", help="path to the file containing the distribution of IPs per customer AS")
 parser.add_argument("--obj_function", type=int, help="Choice of objective function")
-parser.add_argument("--cluster_file", type=str, required=True, help="Pickle file of clustered guards")
+parser.add_argument("--cluster_file", type=str, help="Pickle file of clustered guards")
 parser.add_argument("--pmatrix", type=str, help="Penalty matrix")
 parser.add_argument("--reduced_as_to", type=int, help="for test purpose, gives the number of ASes to keep")
 parser.add_argument("--reduced_guards_to", type=int, help="for test purpose, gives the number of guards to keep")
@@ -103,15 +103,15 @@ def build_fake_pmatrix_profile(guards, W):
             pmatrix[loc] = {}
         for guard in guards:
             #pmatrix[guard][loc] = random.randint(0,1000)
-            pmatrix[loc][guards] = 1000 #uniform pmatrixerability
+            pmatrix[loc][guard] = 1000 #uniform pmatrixerability
         tot += sum(pmatrix[loc].values())
     for guard in guards:
         for loc in W:
-            pmatrix[loc][guard] = pmatrix[guard][loc]/tot
+            pmatrix[loc][guard] = pmatrix[loc][guard]/tot
     return pmatrix
 
 
-def modelize_opt_problem(W, ns_file, obj_function, cluster_file, out_dir=None, pmatrix_file=None, reduced_as_to=None, reduced_guards_to=None):
+def model_opt_problem(W, ns_file, obj_function, cluster_file, out_dir=None, pmatrix_file=None, reduced_as_to=None, reduced_guards_to=None):
     network_state = get_network_state(ns_file)
     
     with open(cluster_file, "rb") as f:
@@ -141,11 +141,16 @@ def modelize_opt_problem(W, ns_file, obj_function, cluster_file, out_dir=None, p
     else:
         with open(pmatrix_file, 'r') as f:
             pmatrix = json.load(f)
-    
+            ## reduce size
+            for loc in pmatrix:
+                for guard in pmatrix[loc]:
+                    if pmatrix[loc][guard] == math.inf:
+                        pmatrix[loc][guard] = sys.maxsize
+    pdb.set_trace()
     #Normalize Wgg
     Wgg = network_state.cons_bw_weights['Wgg']/network_state.cons_bwweightscale
     
-    #Modelize the problem
+    #model the problem
     location_aware = LpProblem("Location aware selection", LpMinimize)
     
     for loc in W:
@@ -242,13 +247,13 @@ def modelize_opt_problem(W, ns_file, obj_function, cluster_file, out_dir=None, p
     
 if __name__ == "__main__":
     args = parser.parse_args()
-    ## Compute appropritate values and modelize the optimization problem
+    ## Compute appropritate values and model the optimization problem
     if args.tor_users_to_location:
         if args.pickle and args.cust_locations:
             W = load_and_compute_W(args.tor_users_to_location, args.cust_locations, args.reduced_as_to)
         elif args.json:
             W = load_and_compute_W_from_citymap(args.tor_users_to_location)
-        modelize_opt_problem(W, args.network_state, args.obj_function, args.cluster_file, args.out_dir, args.pmatrix, args.reduced_as_to, args.reduced_guards_to)
+        model_opt_problem(W, args.network_state, args.obj_function, args.cluster_file, args.out_dir, args.pmatrix, args.reduced_as_to, args.reduced_guards_to)
     ## Load the problem and solve() it
     elif args.load_problem:
         with open(args.load_problem, "rb") as f:
