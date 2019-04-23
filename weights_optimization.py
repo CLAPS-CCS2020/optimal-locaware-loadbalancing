@@ -39,6 +39,7 @@ parser.add_argument("--out_dir", help="out dir to save the .lp file")
 ## the solution computed for state n
 parser.add_argument("--network_state", help="filepath to the network state containing Tor network's data")
 
+ELASTICITY = 0.001
 
 def load_and_compute_W_from_citymap(tor_users_to_location_file):
     with open(tor_users_to_location_file, 'r') as f:
@@ -132,7 +133,8 @@ def model_opt_problem(W, ns_file, obj_function, cluster_file, out_dir=None, pmat
         G += clusters[prefix].tot_consweight
         if clusters[prefix].tot_consweight > max_cons_weight:
             max_cons_weight = clusters[prefix].tot_consweight
-    
+
+    print("Total guard consensus weight: {0}, max observed consenus weight: {1}".format(G, max_cons_weight))
     prefixes = list(clusters.keys())
     #pmatrix is a discrete bivariate distribution [guard][location] which
     #gives a high score if the path between location and guard is bad
@@ -141,15 +143,16 @@ def model_opt_problem(W, ns_file, obj_function, cluster_file, out_dir=None, pmat
     else:
         with open(pmatrix_file, 'r') as f:
             pmatrix = json.load(f)
-            ## reduce size
             for loc in pmatrix:
                 for guard in pmatrix[loc]:
+                    #only right for lastor
                     if pmatrix[loc][guard] == math.inf:
-                        pmatrix[loc][guard] = sys.maxsize
-    pdb.set_trace()
+                        pmatrix[loc][guard] = 3.14*6378137
+                        #pmatrix[loc][guard] = sys.maxsize
+
     #Normalize Wgg
     Wgg = network_state.cons_bw_weights['Wgg']/network_state.cons_bwweightscale
-    
+    print("Wgg={}".format(Wgg))
     #model the problem
     location_aware = LpProblem("Location aware selection", LpMinimize)
     
@@ -162,7 +165,7 @@ def model_opt_problem(W, ns_file, obj_function, cluster_file, out_dir=None, pmat
     #
     # The upBound value matches the worst-case scenario, where the matrix pmatrix has only
     # one non-negative real number on the guard with the highest consensus weight
-    objective = LpVariable("L_upper_bound", lowBound = 0, upBound=max_cons_weight)
+    objective = LpVariable("L_upper_bound", lowBound = 0)
     # Compute L as affine expressions involving LpVariables
     print("Computing Affine Expressions for L, i.e., \sum W_iR_i")
     L = {}
@@ -210,7 +213,14 @@ def model_opt_problem(W, ns_file, obj_function, cluster_file, out_dir=None, pmat
     # Location scores must distribute G*Wgg quantity
     print("Computing constraints \sum R_l(i) == G*Wgg")
     for loc in W:
-        location_aware += lpSum([R[loc][prefix_guard] for prefix_guard in prefixes]) == G*Wgg, "\sum R(i) == G*Wgg for loc {}".format(loc)
+        #constraint = LpConstraint(name="\sum R(i) == G*Wgg for loc {}".format(loc), e = lpSum([R[loc][prefix_guard] for prefix_guard in prefixes]),
+        #        sense=0, rhs=G*Wgg)
+        #prob_extension = constraint.makeElasticSubProblem(penalty=100, proportionFreeBound=0.001)
+        #location_aware.extend(prob_extension)
+        sum_R = lpSum([R[loc][prefix_guard] for prefix_guard in prefixes])
+        location_aware += sum_R == G*Wgg, "\sum R(i) == G*Wgg for loc {}".format(loc)
+        #location_aware += sum_R >= G*Wgg-G*Wgg*ELASTICITY, "\sum R(i) >= G*Wgg-G*Wgg*elasticity for loc {}".format(loc)
+        #location_aware += sum_R <= G*Wgg+G*Wgg*ELASTICITY, "\sum R(i) <= G*Wgg-G*Wgg*elasticity for loc {}".format(loc)
     print("Done.")
     print("Computing constraints L(i) <= BW_i")
     for prefix_guard in prefixes:
@@ -220,10 +230,10 @@ def model_opt_problem(W, ns_file, obj_function, cluster_file, out_dir=None, pmat
         
     #Temporally wating for theta-GP-secure stuffs
     #No relay gets more than 2 times its original selection probability
-    print("No relay gets more than 2 times its original selection probability:")
+    print("GPA constraint, using thetha = 2")
     for loc in W:
         for prefix_guard in prefixes:
-            location_aware += R[loc][prefix_guard] <= 2*clusters[prefix_guard].tot_consweight
+            location_aware += R[loc][prefix_guard] <= 2*clusters[prefix_guard].tot_consweight*Wgg
 
     print("Done. Writting out pickle file")
 
@@ -238,8 +248,8 @@ def model_opt_problem(W, ns_file, obj_function, cluster_file, out_dir=None, pmat
     with open(outpath+".pickle", "wb") as f:
         pickle.dump(location_aware, f, pickle.HIGHEST_PROTOCOL)
 
-    print("Done. Writting out .lp file")
-    location_aware.writeLP(outpath+".lp")
+    #print("Done. Writting out .lp file")
+    #location_aware.writeLP(outpath+".lp")
     print("Done. Writtin out .mps file")
     location_aware.writeMPS(outpath+".mps")
     #location_aware.solve()
