@@ -112,7 +112,8 @@ def build_fake_pmatrix_profile(guards, W):
     return pmatrix
 
 
-def model_opt_problem(W, ns_file, obj_function, cluster_file, out_dir=None, pmatrix_file=None, reduced_as_to=None, reduced_guards_to=None):
+def modelize_opt_problem(W, ns_file, obj_function, cluster_file=None, out_dir=None, pmatrix=None,
+        theta=2, reduced_as_to=None, reduced_guards_to=None):
     network_state = get_network_state(ns_file)
     
     with open(cluster_file, "rb") as f:
@@ -233,7 +234,7 @@ def model_opt_problem(W, ns_file, obj_function, cluster_file, out_dir=None, pmat
     print("GPA constraint, using thetha = 2")
     for loc in W:
         for prefix_guard in prefixes:
-            location_aware += R[loc][prefix_guard] <= 2*clusters[prefix_guard].tot_consweight*Wgg
+            location_aware += R[loc][prefix_guard] <= theta*clusters[prefix_guard].tot_consweight*Wgg
 
     print("Done. Writting out pickle file")
 
