@@ -12,6 +12,7 @@ import pdb
 from stem import Flag
 import json
 import math
+from subprocess import Popen, PIPE
 
 """
 This script receives data relative to Client-to-country distribution, AS information and pmatrixerable
@@ -35,6 +36,7 @@ parser.add_argument("--reduced_as_to", type=int, help="for test purpose, gives t
 parser.add_argument("--reduced_guards_to", type=int, help="for test purpose, gives the number of guards to keep")
 parser.add_argument("--load_problem", help="filepth with problem to solve if already computed")
 parser.add_argument("--out_dir", help="out dir to save the .lp file")
+parser.add_argument("--binary_search_theta", action='store_true', default=False)
 ## Note: simple at first. Later we may try to solve the problem for following network states and initialize variables of the n+1 state with
 ## the solution computed for state n
 parser.add_argument("--network_state", help="filepath to the network state containing Tor network's data")
@@ -264,7 +266,31 @@ if __name__ == "__main__":
             W = load_and_compute_W(args.tor_users_to_location, args.cust_locations, args.reduced_as_to)
         elif args.json:
             W = load_and_compute_W_from_citymap(args.tor_users_to_location)
-        model_opt_problem(W, args.network_state, args.obj_function, 
+        if args.binary_search_theta:
+            cur_theta = 1.5
+            up_theta = 2
+            down_theta = 1
+            last_positive = 2
+            for _ in range(0, 5):
+                model_opt_problem(W, args.network_state, args.obj_function, theta = cur_theta,
+                    cluster_file=args.cluster_file, out_dir=args.out_dir, pmatrix_file=args.pmatrix,
+                    reduced_as_to=args.reduced_as_to, reduced_guards_to=args.reduced_guards_to)
+                    
+                process = Popen(["check_model", os.path.join(args.out_dir, "location_aware_with_obj_{}".format(args.obj_function)), "."], stdout=PIPE)
+                output, err = process.communicate()
+                exit_code = process.wait()
+                if exit_code == 0:
+                    up_theta = cur_theta
+                    last_postive = cur_theta
+                elif exit_code == -1:
+                    down_theta = cur_theta
+                else:
+                    print("check_model returned something else than -1, 0: {}".format(exit_code))
+                cur_theta = (up_theta+down_theta)/2
+                print("Next theta tested value: {}".format(cur_theta))
+
+        else:
+            model_opt_problem(W, args.network_state, args.obj_function, 
                 cluster_file=args.cluster_file, out_dir=args.out_dir, pmatrix_file=args.pmatrix,
                 reduced_as_to=args.reduced_as_to, reduced_guards_to=args.reduced_guards_to)
     ## Load the problem and solve() it
