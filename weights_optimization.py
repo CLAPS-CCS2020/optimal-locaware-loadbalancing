@@ -112,8 +112,8 @@ def build_fake_pmatrix_profile(guards, W):
     return pmatrix
 
 
-def modelize_opt_problem(W, ns_file, obj_function, cluster_file=None, out_dir=None, pmatrix=None,
-        theta=2, reduced_as_to=None, reduced_guards_to=None):
+def model_opt_problem(W, ns_file, obj_function, cluster_file=None, out_dir=None, pmatrix_file=None,
+        theta=0.8, reduced_as_to=None, reduced_guards_to=None):
     network_state = get_network_state(ns_file)
     
     with open(cluster_file, "rb") as f:
@@ -231,7 +231,7 @@ def modelize_opt_problem(W, ns_file, obj_function, cluster_file=None, out_dir=No
         
     #Temporally wating for theta-GP-secure stuffs
     #No relay gets more than 2 times its original selection probability
-    print("GPA constraint, using thetha = 2")
+    print("GPA constraint, using thetha = 2 and relCost(i) = BW_i/sum_j(BW_j)")
     for loc in W:
         for prefix_guard in prefixes:
             location_aware += R[loc][prefix_guard] <= theta*clusters[prefix_guard].tot_consweight*Wgg
@@ -264,7 +264,9 @@ if __name__ == "__main__":
             W = load_and_compute_W(args.tor_users_to_location, args.cust_locations, args.reduced_as_to)
         elif args.json:
             W = load_and_compute_W_from_citymap(args.tor_users_to_location)
-        model_opt_problem(W, args.network_state, args.obj_function, args.cluster_file, args.out_dir, args.pmatrix, args.reduced_as_to, args.reduced_guards_to)
+        model_opt_problem(W, args.network_state, args.obj_function, 
+                cluster_file=args.cluster_file, out_dir=args.out_dir, pmatrix_file=args.pmatrix,
+                reduced_as_to=args.reduced_as_to, reduced_guards_to=args.reduced_guards_to)
     ## Load the problem and solve() it
     elif args.load_problem:
         with open(args.load_problem, "rb") as f:
