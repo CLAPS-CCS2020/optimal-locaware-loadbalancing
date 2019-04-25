@@ -25,7 +25,7 @@ int main (int argc, const char *argv[])
   // at this point we have original model and a new model.  The  information
     if (!presolvedModel) {
     // if presolvedModel is NULL, then it was primal infeasible
-      return -1;
+      return 1;
   }
   // the model is feasible
   return 0;

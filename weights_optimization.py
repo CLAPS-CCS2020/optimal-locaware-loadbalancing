@@ -238,7 +238,7 @@ def model_opt_problem(W, ns_file, obj_function, cluster_file=None, out_dir=None,
         for prefix_guard in prefixes:
             location_aware += R[loc][prefix_guard] <= theta*clusters[prefix_guard].tot_consweight*Wgg
 
-    print("Done. Writting out pickle file")
+    #print("Done. Writting out pickle file")
 
     # Write problem out:
     if out_dir:
@@ -248,8 +248,8 @@ def model_opt_problem(W, ns_file, obj_function, cluster_file=None, out_dir=None,
             outpath = os.path.join(out_dir, "location_aware_with_obj_{}".format(obj_function))
     else:
         outpath = "location_aware.pickle"
-    with open(outpath+".pickle", "wb") as f:
-        pickle.dump(location_aware, f, pickle.HIGHEST_PROTOCOL)
+    #with open(outpath+".pickle", "wb") as f:
+    #    pickle.dump(location_aware, f, pickle.HIGHEST_PROTOCOL)
 
     #print("Done. Writting out .lp file")
     #location_aware.writeLP(outpath+".lp")
@@ -267,22 +267,22 @@ if __name__ == "__main__":
         elif args.json:
             W = load_and_compute_W_from_citymap(args.tor_users_to_location)
         if args.binary_search_theta:
-            cur_theta = 1.5
+            cur_theta = 1.25
             up_theta = 2
-            down_theta = 1
+            down_theta = 0.5
             last_positive = 2
-            for _ in range(0, 5):
+            for _ in range(0, 10):
                 model_opt_problem(W, args.network_state, args.obj_function, theta = cur_theta,
                     cluster_file=args.cluster_file, out_dir=args.out_dir, pmatrix_file=args.pmatrix,
                     reduced_as_to=args.reduced_as_to, reduced_guards_to=args.reduced_guards_to)
                     
-                process = Popen(["check_model", os.path.join(args.out_dir, "location_aware_with_obj_{}".format(args.obj_function)), "."], stdout=PIPE)
+                process = Popen(["./check_model", os.path.join(args.out_dir, "location_aware_with_obj_{}.mps".format(args.obj_function))], stdout=PIPE)
                 output, err = process.communicate()
                 exit_code = process.wait()
                 if exit_code == 0:
                     up_theta = cur_theta
                     last_postive = cur_theta
-                elif exit_code == -1:
+                elif exit_code == 1:
                     down_theta = cur_theta
                 else:
                     print("check_model returned something else than -1, 0: {}".format(exit_code))
