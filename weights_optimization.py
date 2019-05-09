@@ -37,6 +37,7 @@ parser.add_argument("--reduced_guards_to", type=int, help="for test purpose, giv
 parser.add_argument("--load_problem", help="filepth with problem to solve if already computed")
 parser.add_argument("--out_dir", help="out dir to save the .lp file")
 parser.add_argument("--binary_search_theta", action='store_true', default=False)
+parser.add_argument("--theta", type=float, help="set theta value for gpa", default=2.0)
 ## Note: simple at first. Later we may try to solve the problem for following network states and initialize variables of the n+1 state with
 ## the solution computed for state n
 parser.add_argument("--network_state", help="filepath to the network state containing Tor network's data")
@@ -115,7 +116,7 @@ def build_fake_pmatrix_profile(guards, W):
 
 
 def model_opt_problem(W, ns_file, obj_function, cluster_file=None, out_dir=None, pmatrix_file=None,
-        theta=0.8, reduced_as_to=None, reduced_guards_to=None):
+        theta=2.0, reduced_as_to=None, reduced_guards_to=None):
     network_state = get_network_state(ns_file)
     
     with open(cluster_file, "rb") as f:
@@ -144,6 +145,7 @@ def model_opt_problem(W, ns_file, obj_function, cluster_file=None, out_dir=None,
     if not pmatrix_file:
         pmatrix = build_fake_pmatrix_profile(prefixes, W)
     else:
+        print("Loading Penalty matrix")
         with open(pmatrix_file, 'r') as f:
             pmatrix = json.load(f)
             for loc in pmatrix:
@@ -178,18 +180,11 @@ def model_opt_problem(W, ns_file, obj_function, cluster_file=None, out_dir=None,
     ##  min_R max_j ( [\sum_{j} L(i)*pmatrix(j)(i)  for i in all guards])
     if obj_function == 1:
         location_aware += objective, "Z" #set objective function
-        #Trick to avoid complexity explosion of PuLP
-        Intermediate = {}
-        print("Computing Intermediate var")
-        for prefix_guard in prefixes:
-            Intermediate[prefix_guard] = LpVariable("Intermediate guard var {}".format(prefix_guard), lowBound = 0, upBound=max_cons_weight)
-            location_aware += Intermediate[prefix_guard] == L[prefix_guard], "Intermediate on {}".format(prefix_guard)
-        #print("Done.")
         print("Computing the objective Z with linked constraints")
         #min max L*pmatrix is equal to min Z with Z >= L[guard_i]*Vu
         for prefix_guard in prefixes:
             location_aware += objective >=\
-                LpAffineExpression([(Intermediate[prefix_guard], pmatrix[loc][prefix_guard]) for loc in W], name="Intermediate  \sum L[{}]*pmatrix[loc][{}]".format(prefix_guard, prefix_guard)),\
+                LpAffineExpression([(R[loc][prefix_guard], W[loc]*pmatrix[loc][prefix_guard]) for loc in W], name="Intermediate  \sum L[{}]*pmatrix[loc][{}]".format(prefix_guard, prefix_guard)),\
                 "Added constraint Z >= \sum L[{}]*pmatrix[loc][{}] forall loc".format(prefix_guard, prefix_guard)
                 #lpSum([Intermediate[guard]*pmatrix[guard][loc] for loc in W])
             print("Added constraint Z >= \sum L[{}]*pmatrix[loc][{}] forall loc".format(prefix_guard, prefix_guard))
@@ -233,7 +228,7 @@ def model_opt_problem(W, ns_file, obj_function, cluster_file=None, out_dir=None,
         
     #Temporally wating for theta-GP-secure stuffs
     #No relay gets more than 2 times its original selection probability
-    print("GPA constraint, using thetha = 2 and relCost(i) = BW_i/sum_j(BW_j)")
+    print("GPA constraint, using theta = {} and relCost(i) = BW_i/sum_j(BW_j)".format(theta))
     for loc in W:
         for prefix_guard in prefixes:
             location_aware += R[loc][prefix_guard] <= theta*clusters[prefix_guard].tot_consweight*Wgg
@@ -245,11 +240,11 @@ def model_opt_problem(W, ns_file, obj_function, cluster_file=None, out_dir=None,
         if reduced_as_to or reduced_guards_to:
             outpath = os.path.join(out_dir, "location_aware_with_obj_{}_reducedas_{}_reducedguard_{}".format(obj_function, reduced_as_to,reduced_guards_to))
         else:
-            outpath = os.path.join(out_dir, "location_aware_with_obj_{}".format(obj_function))
+            outpath = os.path.join(out_dir, "location_aware_with_obj_{}_theta_{}".format(obj_function, theta))
     else:
         outpath = "location_aware.pickle"
-    #with open(outpath+".pickle", "wb") as f:
-    #    pickle.dump(location_aware, f, pickle.HIGHEST_PROTOCOL)
+    with open(outpath+".pickle", "wb") as f:
+        pickle.dump(location_aware, f, pickle.HIGHEST_PROTOCOL)
 
     #print("Done. Writting out .lp file")
     #location_aware.writeLP(outpath+".lp")
@@ -290,14 +285,14 @@ if __name__ == "__main__":
                 print("Next theta tested value: {}".format(cur_theta))
 
         else:
-            model_opt_problem(W, args.network_state, args.obj_function, 
+            model_opt_problem(W, args.network_state, args.obj_function, theta=args.theta,
                 cluster_file=args.cluster_file, out_dir=args.out_dir, pmatrix_file=args.pmatrix,
                 reduced_as_to=args.reduced_as_to, reduced_guards_to=args.reduced_guards_to)
     ## Load the problem and solve() it
     elif args.load_problem:
         with open(args.load_problem, "rb") as f:
             location_aware = pickle.load(f)
-            location_aware.solve(pulp.PULP_CBC_CMD(msg=1, threads=4))
+            location_aware.solve(pulp.PULP_CPLEX_CMD(msg=1, path="/home/frochet/.cplex/cplex/bin/x86-64_linux/cplex"))
             pdb.set_trace()
             for v in location_aware.variables():
                 print(v.name, "=", v.varValue)
