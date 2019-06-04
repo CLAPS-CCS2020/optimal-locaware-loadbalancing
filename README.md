@@ -95,7 +95,11 @@ Tor network.
 
       4) for l in AllLocations:
           max_l max_i R_l(i)/(\sum_{j}R_l(j)*relCost(i)) <= \theta
-  
+      
+      5) TODO: a constraint ensuring that the penalty score cannot be
+worse than vanilla Tor for each location (Aaron pointed this out in a
+video chat).
+ 
   Constraints 1), 2) and 3) guarantee to preserve current Tor's
 load-balancing system. Constraint 4) trade-off location-aware benefit with
 defense against guard-placement attacks, as Aaron pointed out in his
