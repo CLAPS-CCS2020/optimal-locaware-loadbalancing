@@ -15,7 +15,7 @@ import math
 from subprocess import Popen, PIPE
 
 """
-This script receives data relative to Client-to-country distribution, AS information and pmatrixerable
+This script receives data relative to Client-to-country distribution, AS information and penalty
 paths information 
 
 apply a minmax optimiztion problem and ouputs an allocation of scores for each
@@ -96,7 +96,7 @@ def load_and_compute_W(tor_users_to_location_file, cust_locations_file, reduced_
 def build_fake_pmatrix_profile(guards, W):
     """
         build a bivariate dicrete distribution for AS n and Guard i
-        with a pmatrixerability score
+        with a penalty score
 
         This function builds a fake one for test purpose 
     """
@@ -107,7 +107,7 @@ def build_fake_pmatrix_profile(guards, W):
             pmatrix[loc] = {}
         for guard in guards:
             #pmatrix[guard][loc] = random.randint(0,1000)
-            pmatrix[loc][guard] = 1000 #uniform pmatrixerability
+            pmatrix[loc][guard] = 1000 #uniform penalty
         tot += sum(pmatrix[loc].values())
     for guard in guards:
         for loc in W:
@@ -120,7 +120,7 @@ def model_opt_problem(W, ns_file, obj_function, cluster_file=None, out_dir=None,
     network_state = get_network_state(ns_file)
     
     with open(cluster_file, "rb") as f:
-        clusters = pickle.load(f)
+        gclusters = pickle.load(f)
     # guardsfp = [relay for relay in network_state.cons_rel_stats if Flag.GUARD in network_state.cons_rel_stats[relay].flags and
             # not Flag.EXIT in network_state.cons_rel_stats[relay].flags]
     if reduced_guards_to:
@@ -133,17 +133,17 @@ def model_opt_problem(W, ns_file, obj_function, cluster_file=None, out_dir=None,
     #max_cons_weight is going to be used as an upper bound of our
     #objective function
     max_cons_weight = 0
-    for prefix in clusters:
-        G += clusters[prefix].tot_consweight
-        if clusters[prefix].tot_consweight > max_cons_weight:
-            max_cons_weight = clusters[prefix].tot_consweight
+    for prefix in gclusters:
+        G += gclusters[prefix].tot_consweight
+        if gclusters[prefix].tot_consweight > max_cons_weight:
+            max_cons_weight = gclusters[prefix].tot_consweight
 
     print("Total guard consensus weight: {0}, max observed consenus weight: {1}".format(G, max_cons_weight))
-    prefixes = list(clusters.keys())
+    gclustersids = list(gclusters.keys())
     #pmatrix is a discrete bivariate distribution [guard][location] which
     #gives a high score if the path between location and guard is bad
     if not pmatrix_file:
-        pmatrix = build_fake_pmatrix_profile(prefixes, W)
+        pmatrix = build_fake_pmatrix_profile(gclustersids, W)
     else:
         print("Loading Penalty matrix")
         with open(pmatrix_file, 'r') as f:
@@ -162,76 +162,74 @@ def model_opt_problem(W, ns_file, obj_function, cluster_file=None, out_dir=None,
     location_aware = LpProblem("Location aware selection", LpMinimize)
     
     for loc in W:
-        R[loc] = LpVariable.dicts(loc, prefixes, lowBound = 0,
+        R[loc] = LpVariable.dicts(loc, gclustersids, lowBound = 0,
                 upBound=Wgg*G)
     
     location_aware = LpProblem("Optimal location-aware path selection", LpMinimize)
     # Write a minmax problem as a min of a upper bound
     #
-    # The upBound value matches the worst-case scenario, where the matrix pmatrix has only
-    # one non-negative real number on the guard with the highest consensus weight
     objective = LpVariable("L_upper_bound", lowBound = 0)
     # Compute L as affine expressions involving LpVariables
     print("Computing Affine Expressions for L, i.e., \sum W_iR_i")
     L = {}
-    for prefix_guard in prefixes:
-        L[prefix_guard] = LpAffineExpression([(R[loc][prefix_guard], W[loc]) for loc in W], name="L({})".format(prefix_guard))
+    for gclusterid in gclustersids:
+        L[gclusterid] = LpAffineExpression([(R[loc][gclusterid], W[loc]) for loc in W], name="L({})".format(gclusterid))
     print("Done.")
     ##  min_R max_j ( [\sum_{j} L(i)*pmatrix(j)(i)  for i in all guards])
     if obj_function == 1:
         location_aware += objective, "Z" #set objective function
         print("Computing the objective Z with linked constraints")
         #min max L*pmatrix is equal to min Z with Z >= L[guard_i]*Vu
-        for prefix_guard in prefixes:
+        for gclusterid in gclustersids:
             location_aware += objective >=\
-                LpAffineExpression([(R[loc][prefix_guard], W[loc]*pmatrix[loc][prefix_guard]) for loc in W], name="Intermediate  \sum L[{}]*pmatrix[loc][{}]".format(prefix_guard, prefix_guard)),\
-                "Added constraint Z >= \sum L[{}]*pmatrix[loc][{}] forall loc".format(prefix_guard, prefix_guard)
+                LpAffineExpression([(R[loc][gclusterid], W[loc]*pmatrix[loc][gclusterid]) for loc in W], name="Intermediate  \sum L[{}]*pmatrix[loc][{}]".format(gclusterid, gclusterid)),\
+                "Added constraint Z >= \sum L[{}]*pmatrix[loc][{}] forall loc".format(gclusterid, gclusterid)
                 #lpSum([Intermediate[guard]*pmatrix[guard][loc] for loc in W])
-            print("Added constraint Z >= \sum L[{}]*pmatrix[loc][{}] forall loc".format(prefix_guard, prefix_guard))
+            print("Added constraint Z >= \sum L[{}]*pmatrix[loc][{}] forall loc".format(gclusterid, gclusterid))
     ##   min_R max_j ([\sum_{i} W(j)*R(j,i)*pmatrix(j)(i)  for j in all locations])
     elif obj_function == 2:
         location_aware += objective, "Z" #set objective function
         for loc in W:
             location_aware += objective >= \
-                LpAffineExpression([(R[loc][prefix_guard], W[loc]*pmatrix[loc][prefix_guard]) for prefix_guard in prefixes])
+                LpAffineExpression([(R[loc][gclusterid], W[loc]*pmatrix[loc][gclusterid]) for gclusterid in gclustersids])
             print("Added constraint Z >= \sum_i W({})*R[{}][prefix]*pmatrix[prefix][{}] forall prefix".format(loc, loc, loc))
     ##   min_R (\sum_i \sum_j W(j)*R(i,j)*pmatrix(i,j))
     elif obj_function == 3:
         print("Computing the lpSum of LpAffineExpressions as an objective function... (this can take time)")
-        location_aware += lpSum([LpAffineExpression([(R[loc][prefix_guard], W[loc]*pmatrix[loc][prefix_guard]) for asn in W]) for prefix_guard in prefixes]), "Z"
+        location_aware += lpSum([LpAffineExpression([(R[loc][gclusterid], W[loc]*pmatrix[loc][gclusterid]) for asn in W]) for gclusterid in gclustersids]), "Z"
     ##   min max_j (\sum_i R(i,j)*pmatrix(i,j)) 
     elif obj_function == 4:
         location_aware += objective, "Z" #set objective function
         for loc in W:
             location_aware += objective >= \
-                    LpAffineExpression([(R[loc][prefix_guard], pmatrix[loc][prefix_guard]) for prefix_guard in prefixes])
-            print("Added constraint Z >= R[{}][prefix_guard]*pmatrix[prefix_guard][{}] forall prefixes".format(loc, loc))
+                    LpAffineExpression([(R[loc][gclusterid], pmatrix[loc][gclusterid]) for gclusterid in gclustersids])
+            print("Added constraint Z >= R[{}][gclusterid]*pmatrix[gclusterid][{}] forall gclustersids".format(loc, loc))
     print("Done.")
     # Now set of constraints:
     # Location scores must distribute G*Wgg quantity
     print("Computing constraints \sum R_l(i) == G*Wgg")
     for loc in W:
-        #constraint = LpConstraint(name="\sum R(i) == G*Wgg for loc {}".format(loc), e = lpSum([R[loc][prefix_guard] for prefix_guard in prefixes]),
+        #constraint = LpConstraint(name="\sum R(i) == G*Wgg for loc {}".format(loc), e = lpSum([R[loc][gclusterid] for gclusterid in gclustersids]),
         #        sense=0, rhs=G*Wgg)
         #prob_extension = constraint.makeElasticSubProblem(penalty=100, proportionFreeBound=0.001)
         #location_aware.extend(prob_extension)
-        sum_R = lpSum([R[loc][prefix_guard] for prefix_guard in prefixes])
+        sum_R = lpSum([R[loc][gclusterid] for gclusterid in gclustersids])
         location_aware += sum_R == G*Wgg, "\sum R(i) == G*Wgg for loc {}".format(loc)
         #location_aware += sum_R >= G*Wgg-G*Wgg*ELASTICITY, "\sum R(i) >= G*Wgg-G*Wgg*elasticity for loc {}".format(loc)
         #location_aware += sum_R <= G*Wgg+G*Wgg*ELASTICITY, "\sum R(i) <= G*Wgg-G*Wgg*elasticity for loc {}".format(loc)
     print("Done.")
     print("Computing constraints L(i) <= BW_i")
-    for prefix_guard in prefixes:
-        location_aware += L[prefix_guard] <= clusters[prefix_guard].tot_consweight, "L(i) <= BW_i for prefix_guard {}".format(prefix_guard)
+    for gclusterid in gclustersids:
+        location_aware += L[gclusterid] <= gclusters[gclusterid].tot_consweight, "L(i) <= BW_i for gclusterid {}".format(gclusterid)
 
     ## Missing constraint for theta-GP-Secure TODO
         
     #Temporally wating for theta-GP-secure stuffs
-    #No relay gets more than 2 times its original selection probability
+    #No relay gets more than theta times its original selection probability
     print("GPA constraint, using theta = {} and relCost(i) = BW_i/sum_j(BW_j)".format(theta))
     for loc in W:
-        for prefix_guard in prefixes:
-            location_aware += R[loc][prefix_guard] <= theta*clusters[prefix_guard].tot_consweight*Wgg
+        for gclusterid in gclustersids:
+            location_aware += R[loc][gclusterid] <= theta*gclusters[gclusterid].tot_consweight*Wgg
 
     #print("Done. Writting out pickle file")
 
