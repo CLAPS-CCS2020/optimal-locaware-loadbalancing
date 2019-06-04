@@ -184,7 +184,7 @@ def model_opt_problem(W, ns_file, obj_function, cluster_file=None, out_dir=None,
         #min max L*pmatrix is equal to min Z with Z >= L[guard_i]*Vu
         for prefix_guard in prefixes:
             location_aware += objective >=\
-                LpAffineExpression([(R[loc][prefix_guard], W[loc]*pmatrix[loc][prefix_guard]) for loc in W], name="Intermediate  \sum L[{}]*pmatrix[loc][{}]".format(prefix_guard, prefix_guard)),\
+                LpAffineExpression([(R[loc][prefix_guard], W[loc]*pmatrix[loc][prefix_guard]) for loc in W], name="\sum L[{}]*pmatrix[loc][{}]".format(prefix_guard, prefix_guard)),\
                 "Added constraint Z >= \sum L[{}]*pmatrix[loc][{}] forall loc".format(prefix_guard, prefix_guard)
                 #lpSum([Intermediate[guard]*pmatrix[guard][loc] for loc in W])
             print("Added constraint Z >= \sum L[{}]*pmatrix[loc][{}] forall loc".format(prefix_guard, prefix_guard))
@@ -198,7 +198,7 @@ def model_opt_problem(W, ns_file, obj_function, cluster_file=None, out_dir=None,
     ##   min_R (\sum_i \sum_j W(j)*R(i,j)*pmatrix(i,j))
     elif obj_function == 3:
         print("Computing the lpSum of LpAffineExpressions as an objective function... (this can take time)")
-        location_aware += lpSum([LpAffineExpression([(R[loc][prefix_guard], W[loc]*pmatrix[loc][prefix_guard]) for asn in W]) for prefix_guard in prefixes]), "Z"
+        location_aware += lpSum([LpAffineExpression([(R[loc][prefix_guard], W[loc]*pmatrix[loc][prefix_guard]) for loc in W]) for prefix_guard in prefixes]), "Z"
     ##   min max_j (\sum_i R(i,j)*pmatrix(i,j)) 
     elif obj_function == 4:
         location_aware += objective, "Z" #set objective function
