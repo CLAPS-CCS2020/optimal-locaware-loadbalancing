@@ -28,6 +28,7 @@ parser = argparse.ArgumentParser(description="")
 parser.add_argument("--tor_users_to_location", help="path to the pickle file containing the distribution of Tor users per country")
 parser.add_argument("--pickle", action="store_true", default=False)
 parser.add_argument("--json", action="store_true", default=False)
+parser.add_argument("--disable_SWgg", action="store_true", default=False)
 parser.add_argument("--cust_locations", help="path to the file containing the distribution of IPs per customer AS")
 parser.add_argument("--obj_function", type=int, help="Choice of objective function")
 parser.add_argument("--cluster_file", type=str, help="Pickle file of clustered guards")
@@ -137,8 +138,24 @@ def model_opt_problem(W, ns_file, obj_function, cluster_file=None, out_dir=None,
         G += gclusters[prefix].tot_consweight
         if gclusters[prefix].tot_consweight > max_cons_weight:
             max_cons_weight = gclusters[prefix].tot_consweight
-
     print("Total guard consensus weight: {0}, max observed consenus weight: {1}".format(G, max_cons_weight))
+    # Computing E and D for the new Wgg (see Section 4.3 of Waterfilling paper).
+    E = 0
+    D = 0
+    for relay in network_state.cons_rel_stats:
+        rel_stat = network_state.cons_rel_stats[relay]
+        if Flag.RUNNING not in rel_stat.flags or Flag.BADEXIT in rel_stat.flags\
+          or Flag.VALID not in rel_stat.flags:
+            continue
+        if Flag.EXIT and Flag.GUARD in rel_stat.flags:
+            D += rel_stat.consweight
+        elif Flag.EXIT in rel_stat.flags:
+            E += rel_stat.consweight
+    SWgg = (E + D)/G #SWgg for Scarce Wgg
+    print("New Wgg value from same strategy as Waterfillign Section 4.3 is: {}".format(SWgg))
+    if not disable_SWgg:
+        Wgg = SWgg
+
     gclustersids = list(gclusters.keys())
     #pmatrix is a discrete bivariate distribution [guard][location] which
     #gives a high score if the path between location and guard is bad
