@@ -25,7 +25,7 @@ class ClusterRouter:
         assert(isinstance(router, RouterStatusEntry))
         if router.fprint not in self.routerlist:
             self.routerlist[router.fprint] = router
-            self.tot_consweight += router.consweight
+        self.tot_consweight += router.consweight
 
 
 

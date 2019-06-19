@@ -117,7 +117,7 @@ def build_fake_pmatrix_profile(guards, W):
 
 
 def model_opt_problem(W, ns_file, obj_function, cluster_file=None, out_dir=None, pmatrix_file=None,
-        theta=2.0, reduced_as_to=None, reduced_guards_to=None):
+        theta=2.0, reduced_as_to=None, reduced_guards_to=None, disable_SWgg=False):
     network_state = get_network_state(ns_file)
     
     with open(cluster_file, "rb") as f:
@@ -147,14 +147,13 @@ def model_opt_problem(W, ns_file, obj_function, cluster_file=None, out_dir=None,
         if Flag.RUNNING not in rel_stat.flags or Flag.BADEXIT in rel_stat.flags\
           or Flag.VALID not in rel_stat.flags:
             continue
-        if Flag.EXIT and Flag.GUARD in rel_stat.flags:
+        if Flag.EXIT in rel_stat.flags and Flag.GUARD in rel_stat.flags:
             D += rel_stat.consweight
         elif Flag.EXIT in rel_stat.flags:
             E += rel_stat.consweight
+    print("E:{}, D:{} and G:{}".format(E,D,G))
     SWgg = (E + D)/G #SWgg for Scarce Wgg
     print("New Wgg value from same strategy as Waterfillign Section 4.3 is: {}".format(SWgg))
-    if not disable_SWgg:
-        Wgg = SWgg
 
     gclustersids = list(gclusters.keys())
     #pmatrix is a discrete bivariate distribution [guard][location] which
@@ -174,6 +173,8 @@ def model_opt_problem(W, ns_file, obj_function, cluster_file=None, out_dir=None,
 
     #Normalize Wgg
     Wgg = network_state.cons_bw_weights['Wgg']/network_state.cons_bwweightscale
+    if not disable_SWgg:
+        Wgg = SWgg
     print("Wgg={}".format(Wgg))
     #model the problem
     location_aware = LpProblem("Location aware selection", LpMinimize)
@@ -284,7 +285,8 @@ if __name__ == "__main__":
             for _ in range(0, 10):
                 model_opt_problem(W, args.network_state, args.obj_function, theta = cur_theta,
                     cluster_file=args.cluster_file, out_dir=args.out_dir, pmatrix_file=args.pmatrix,
-                    reduced_as_to=args.reduced_as_to, reduced_guards_to=args.reduced_guards_to)
+                    reduced_as_to=args.reduced_as_to, reduced_guards_to=args.reduced_guards_to,
+                    disable_SWgg=args.disable_SWgg)
                     
                 process = Popen(["./check_model", os.path.join(args.out_dir, "location_aware_with_obj_{}.mps".format(args.obj_function))], stdout=PIPE)
                 output, err = process.communicate()
@@ -302,7 +304,8 @@ if __name__ == "__main__":
         else:
             model_opt_problem(W, args.network_state, args.obj_function, theta=args.theta,
                 cluster_file=args.cluster_file, out_dir=args.out_dir, pmatrix_file=args.pmatrix,
-                reduced_as_to=args.reduced_as_to, reduced_guards_to=args.reduced_guards_to)
+                reduced_as_to=args.reduced_as_to, reduced_guards_to=args.reduced_guards_to,
+                disable_SWgg=args.disable_SWgg)
     ## Load the problem and solve() it
     elif args.load_problem:
         with open(args.load_problem, "rb") as f:
