@@ -45,6 +45,31 @@ parser.add_argument("--network_state", help="filepath to the network state conta
 
 ELASTICITY = 0.001
 
+class Relay():
+   """
+   from shadow-plugin-tor/tools/generate.py (duplicates to avoid dependencies)
+   """
+    def __init__(self, ip, bw, isExit=False, isGuard=False):
+        self.ip = ip
+        self.bwconsensus = int(bw) # in KiB, from consensus
+        self.isExit = isExit
+        self.isGuard = isGuard
+        self.code = None
+
+        self.bwrate = 0 # in bytes
+        self.bwburst = 0 # in bytes
+        self.bwtstamp = 0
+
+        self.maxobserved = 0 # in bytes
+        self.maxread = 0 # in bytes
+        self.maxwrite = 0 # in bytes
+
+        self.upload = 0 # in KiB
+        self.download = 0 # in KiB
+
+        self.rates = [] # list of bytes/s histories
+
+
 def load_and_compute_W_from_shadowcityinfo(tor_users_to_location, cityinfo):
     pass
 
@@ -122,12 +147,30 @@ def build_fake_pmatrix_profile(guards, W):
 def model_opt_problem_lastor_shadow(shadow_relay_info, obj_function, out_dir=None, pmatrix_file=None,
         theta=2.0, disable_SWgg=False):
     pass
+    with open(shadow_relay_info, "rb") as picklef:
+        exitguards_nodes = pickle.load(picklef)
+        guards_nodes = pickle.load(picklef)
+        exits_nodes = pickle.load(picklef)
+        middles_nodes = pickle.load(picklef)
 
     ## Compute G, Wgg, etc.
+    G, E, M, D = 0, 0, 0, 0
+    G = sum(guard.bwconsensus for guard in guards_nodes)
+    E = sum(exit.bwconsensus for exit in exits_nodes)
+    D = sum(exitguard.bwconsensus for exitguard in exitguards_nodes)
+    M = sum(middle.bwconsensus for middle in middles_nodes)
+
+    SWgg = (E + D)/G #SWgg for Scarce Wgg
 
     ## Load shadow's penalty matrix
+    
+    with open(pmatrix_file, "r") as f:
+        pmatrix = json.load(f)
 
     ## model opt problem
+
+    location_aware = LpProblem("Location aware selection", LpMinimize)
+    #todo
 
 
 def model_opt_problem(W, ns_file, obj_function, cluster_file=None, out_dir=None, pmatrix_file=None,
