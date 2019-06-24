@@ -45,6 +45,10 @@ parser.add_argument("--network_state", help="filepath to the network state conta
 
 ELASTICITY = 0.001
 
+def load_and_compute_W_from_shadowcityinfo(tor_users_to_location, cityinfo):
+    pass
+
+
 def load_and_compute_W_from_citymap(tor_users_to_location_file):
     with open(tor_users_to_location_file, 'r') as f:
         tor_users_to_location = json.load(f)
@@ -114,6 +118,16 @@ def build_fake_pmatrix_profile(guards, W):
         for loc in W:
             pmatrix[loc][guard] = pmatrix[loc][guard]/tot
     return pmatrix
+
+def model_opt_problem_lastor_shadow(shadow_relay_info, obj_function, out_dir=None, pmatrix_file=None,
+        theta=2.0, disable_SWgg=False):
+    pass
+
+    ## Compute G, Wgg, etc.
+
+    ## Load shadow's penalty matrix
+
+    ## model opt problem
 
 
 def model_opt_problem(W, ns_file, obj_function, cluster_file=None, out_dir=None, pmatrix_file=None,
@@ -277,6 +291,9 @@ if __name__ == "__main__":
             W = load_and_compute_W(args.tor_users_to_location, args.cust_locations, args.reduced_as_to)
         elif args.json:
             W = load_and_compute_W_from_citymap(args.tor_users_to_location)
+        elif args.in_shadow:
+            ## this W is computed for shadow simulations, not real world.
+            W = load_and_compute_W_from_shadowcityinfo(args.tor_users_to_location, args.cityinfo)
         if args.binary_search_theta:
             cur_theta = 1.25
             up_theta = 2
@@ -301,6 +318,10 @@ if __name__ == "__main__":
                 cur_theta = (up_theta+down_theta)/2
                 print("Next theta tested value: {}".format(cur_theta))
 
+        elif args.in_shadow:
+            model_opt_problem_lastor_shadow(W, args.shadow_relay_info, args.obj_function, out_dir=args.out_dir,
+                    pmatrix_file=args.pmatrix, theta=args.theta, disable_SWgg=False)
+                    
         else:
             model_opt_problem(W, args.network_state, args.obj_function, theta=args.theta,
                 cluster_file=args.cluster_file, out_dir=args.out_dir, pmatrix_file=args.pmatrix,
