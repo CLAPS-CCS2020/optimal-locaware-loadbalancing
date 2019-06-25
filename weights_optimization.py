@@ -55,6 +55,7 @@ class Relay():
         self.isExit = isExit
         self.isGuard = isGuard
         self.code = None
+        self.name = None
 
         self.bwrate = 0 # in bytes
         self.bwburst = 0 # in bytes
@@ -171,6 +172,43 @@ def model_opt_problem_lastor_shadow(shadow_relay_info, obj_function, out_dir=Non
 
     location_aware = LpProblem("Location aware selection", LpMinimize)
     #todo
+
+    objective = LpVariable("L_upper_bound", lowBound = 0)
+    # Compute L as affine expressions involving LpVariables
+    print("Computing Affine Expressions for L, i.e., \sum W_iR_i")
+    L = {}
+    for guard in guards_nodes:
+        L[guard.name] = LpAffineExpression([(R[loc][guard.name], W[loc]) for loc in W], name="L({})".format(guard.name))
+
+    print("Computing the lpSum of LpAffineExpressions as an objective function... (this can take time)")
+    # client-guard relation
+    part_one = lpsum([LpAffineExpression([(R[loc][guard.name], W[loc]*pmatrix[loc][guard.name]) for loc in W]) for guard in guards_nodes])
+    # guard-guard at the middle position relationship
+    part_two = lpsum([LpAffineExpression([(guard.bwconsenus - L[guard.name], pmatrix[guard.name][guard2.name]) for guard2 in guards_nodes if  guard2.name != guard.name]) for guard in guards_nodes])
+    # guard-middle relationship
+    part_three = lpsum([LpAffineExpression([(guard.bwconsenus - L[guard.name], pmatrix[guard.name][middle.name]) for middle in middles_nodes) for guard in guards_nodes])
+    # middle as guard - exit relationship
+    part_four = lpsum([LpAffineExpression([(guard.bwconsenus - L[guard.name], pmatrix[guard.name][exit.name]) for exit in exits_nodes) for guard in guards_nodes])
+    # middle as guard - guardexits relationship
+    part_five = lpsum([LpAffineExpression([(guard.bwconsensus - L[guard.name], pmatrix[guard.name][guardexit.name]) for exitguard in exitguards_nodes) for guard in guards_nodes])
+    location_aware += lpSum([part_one, part_two, part_three, part_four, part_five]), "Z"
+    print("Done.")
+    # Now set of constraints:
+    # Location scores must distribute G*Wgg quantity
+    print("Computing constraints \sum R_l(i) == G*Wgg")
+    for loc in W:
+        sum_R = lpSum([R[loc][guard.name] for guard in guards_nodes])
+        location_aware += sum_R == G*Wgg, "\sum R(i) == G*Wgg for loc {}".format(loc)
+    print("Done.")
+    print("Computing constraints L(i) <= BW_i")
+    for guard in guards_nodes:
+        location_aware += L[guard.name] <= guard.bwconsensus, "L(i) <= BW_i for {}".format(guard.name)
+
+    #No relay gets more than theta times its original selection probability
+    print("GPA constraint, using theta = {} and relCost(i) = BW_i/sum_j(BW_j)".format(theta))
+    for loc in W:
+        for guard in guards_nodes:
+            location_aware += R[loc][guard.name] <= theta*guard.bwconsensus*SWgg
 
 
 def model_opt_problem(W, ns_file, obj_function, cluster_file=None, out_dir=None, pmatrix_file=None,
