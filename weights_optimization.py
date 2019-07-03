@@ -32,7 +32,10 @@ parser.add_argument("--disable_SWgg", action="store_true", default=False)
 parser.add_argument("--cust_locations", help="path to the file containing the distribution of IPs per customer AS")
 parser.add_argument("--obj_function", type=int, help="Choice of objective function")
 parser.add_argument("--cluster_file", type=str, help="Pickle file of clustered guards")
+parser.add_argument("--client_clust_representative", type=str, help="Ryan's clusterization file for ASes in one AS representative")
 parser.add_argument("--pmatrix", type=str, help="Penalty matrix")
+parser.add_argument("--pmatrix_unclustered", type=str, help="Penalty matrix")
+parser.add_argument("--penalty_vanilla", type=str, help="Vanilla penalty vector for each location")
 parser.add_argument("--reduced_as_to", type=int, help="for test purpose, gives the number of ASes to keep")
 parser.add_argument("--reduced_guards_to", type=int, help="for test purpose, gives the number of guards to keep")
 parser.add_argument("--load_problem", help="filepth with problem to solve if already computed")
@@ -73,6 +76,29 @@ class Relay():
 
 def load_and_compute_W_from_shadowcityinfo(tor_users_to_location, cityinfo):
     pass
+
+
+def load_and_compute_W_from_clusterinfo(asn_to_users_file, clusterinfo):
+    """
+        Compute densities of users per cluster and returns
+        both the density and the list of location per cluster
+        representative
+    """
+    with open(asn_to_users_file) as f:
+        asn_to_users = json.load(f)
+    W = {}
+    tot = sum(asn_to_users.values())
+    repre = {}
+    with open(clusterinfo) as f:
+        for line in f:
+            tab = line.split('\t')
+            W[tab[0]] = 0
+            repre[tab[0]] = tab[1]
+            for asn in tab[1]:
+                W[tab[0]] += asn_to_users[asn]
+            W[tab[0]] =/ tot
+    
+    return W, repre
 
 
 def load_and_compute_W_from_citymap(tor_users_to_location_file):
@@ -153,7 +179,7 @@ def model_opt_problem_lastor_shadow(shadow_relay_info, obj_function, out_dir=Non
         guards_nodes = pickle.load(picklef)
         exits_nodes = pickle.load(picklef)
         middles_nodes = pickle.load(picklef)
-
+    
     ## Compute G, Wgg, etc.
     G, E, M, D = 0, 0, 0, 0
     G = sum(guard.bwconsensus for guard in guards_nodes)
@@ -211,8 +237,8 @@ def model_opt_problem_lastor_shadow(shadow_relay_info, obj_function, out_dir=Non
             location_aware += R[loc][guard.name] <= theta*guard.bwconsensus*SWgg
 
 
-def model_opt_problem(W, ns_file, obj_function, cluster_file=None, out_dir=None, pmatrix_file=None,
-        theta=2.0, reduced_as_to=None, reduced_guards_to=None, disable_SWgg=False):
+def model_opt_problem(W, repre, penalty_vanilla, ns_file, obj_function, cluster_file=None, out_dir=None, pmatrix_file=None,
+        pmatrix_unclustered_file=None, theta=2.0, reduced_as_to=None, reduced_guards_to=None, disable_SWgg=False):
     network_state = get_network_state(ns_file)
     
     with open(cluster_file, "rb") as f:
@@ -222,6 +248,8 @@ def model_opt_problem(W, ns_file, obj_function, cluster_file=None, out_dir=None,
     if reduced_guards_to:
         guardsfp = guardsfp[0:reduced_guards_to]
     
+    with open(penalty_vanilla) as f:
+        penalty_vanilla = json.load(f)
 
     R = {}
     #Compute total G bandwidth
@@ -259,13 +287,14 @@ def model_opt_problem(W, ns_file, obj_function, cluster_file=None, out_dir=None,
         print("Loading Penalty matrix")
         with open(pmatrix_file, 'r') as f:
             pmatrix = json.load(f)
-            for loc in pmatrix:
-                for guard in pmatrix[loc]:
-                    #only right for lastor
-                    if pmatrix[loc][guard] == math.inf:
-                        pmatrix[loc][guard] = 3.14*6378137
+            #for loc in pmatrix:
+            #    for guard in pmatrix[loc]:
+            #        #only right for lastor
+            #        if pmatrix[loc][guard] == math.inf:
+            #            pmatrix[loc][guard] = 3.14*6378137
                         #pmatrix[loc][guard] = sys.maxsize
-
+        with open(pmatrix_unclustered_file, 'r') as f:
+            pmatrix_unclustered = json.load(f)
     #Normalize Wgg
     Wgg = network_state.cons_bw_weights['Wgg']/network_state.cons_bwweightscale
     if not disable_SWgg:
@@ -343,8 +372,14 @@ def model_opt_problem(W, ns_file, obj_function, cluster_file=None, out_dir=None,
     for loc in W:
         for gclusterid in gclustersids:
             location_aware += R[loc][gclusterid] <= theta*gclusters[gclusterid].tot_consweight*Wgg
+    print("Done.")
+    print("Adding 'no worse than vanilla constraint'")
+    for loc in W:
+        for ori_loc in repre[loc]:
+            location_aware += LpAffineExpression([(R[loc][gclusterid], pmatrix_unclustered[ori_loc][gclusterid]) for gclusterid in gclustersids]) <= penalty_vanilla[ori_loc]
 
-    #print("Done. Writting out pickle file")
+
+    print("Done. Writting ouut")
 
     # Write problem out:
     if out_dir:
@@ -370,6 +405,8 @@ if __name__ == "__main__":
     if args.tor_users_to_location:
         if args.pickle and args.cust_locations:
             W = load_and_compute_W(args.tor_users_to_location, args.cust_locations, args.reduced_as_to)
+        elif args.json and args.cluster_representative:
+            W, repre = load_and_compute_W_from_clusterinfo(args.tor_users_to_location, args.client_clust_representative)
         elif args.json:
             W = load_and_compute_W_from_citymap(args.tor_users_to_location)
         elif args.in_shadow:
@@ -381,7 +418,7 @@ if __name__ == "__main__":
             down_theta = 0.5
             last_positive = 2
             for _ in range(0, 10):
-                model_opt_problem(W, args.network_state, args.obj_function, theta = cur_theta,
+                model_opt_problem(W, repre, args.penalty_vanilla, args.network_state, args.obj_function, theta = cur_theta,
                     cluster_file=args.cluster_file, out_dir=args.out_dir, pmatrix_file=args.pmatrix,
                     reduced_as_to=args.reduced_as_to, reduced_guards_to=args.reduced_guards_to,
                     disable_SWgg=args.disable_SWgg)
@@ -401,10 +438,10 @@ if __name__ == "__main__":
 
         elif args.in_shadow:
             model_opt_problem_lastor_shadow(W, args.shadow_relay_info, args.obj_function, out_dir=args.out_dir,
-                    pmatrix_file=args.pmatrix, theta=args.theta, disable_SWgg=False)
+                    pmatrix_file=args.pmatrix, pmatrix_unclustered_file=args.pmatrix_unclustered_file theta=args.theta, disable_SWgg=False)
                     
         else:
-            model_opt_problem(W, args.network_state, args.obj_function, theta=args.theta,
+            model_opt_problem(W, repre, args.penalty_vanilla, args.network_state, args.obj_function, theta=args.theta,
                 cluster_file=args.cluster_file, out_dir=args.out_dir, pmatrix_file=args.pmatrix,
                 reduced_as_to=args.reduced_as_to, reduced_guards_to=args.reduced_guards_to,
                 disable_SWgg=args.disable_SWgg)
