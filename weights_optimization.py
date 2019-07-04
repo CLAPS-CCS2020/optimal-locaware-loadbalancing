@@ -93,10 +93,7 @@ def load_and_compute_W_from_clusterinfo(asn_to_users_file, clusterinfo):
         for line in f:
             tab = line.split('\t')
             W[tab[0]] = 0
-            repre[tab[0]] = tab[1].split(',')
-            #some bug in a file
-            if repre[tab[0]][-1] == "\n":
-                repre[tab[0]] = repre[tab[0]][:-1]
+            repre[tab[0]] = tab[1][:-1].split(',')
             for asn in tab[1].split(',')[:-1]:
                 W[tab[0]] += asn_to_users[asn]
             W[tab[0]] /= tot
@@ -159,7 +156,6 @@ def produce_clustered_pmatrix(pmatrix, repre, asn_to_users, gclusters):
     of penalties given all ases of a given cluster, according to their number
     of users
     """
-    pdb.set_trace()
     pmatrix_clustered = {}
     for representative, ases in repre.items():
         pmatrix_clustered[representative] = {}
@@ -405,10 +401,10 @@ def model_opt_problem(W, repre, asn_to_users_file, penalty_vanilla, ns_file, obj
         for gclusterid in gclustersids:
             location_aware += R[loc][gclusterid] <= theta*gclusters[gclusterid].tot_consweight*Wgg
     print("Done.")
-    #print("Adding 'no worse than vanilla constraint'")
-    #for loc in W:
-    #    for ori_loc in repre[loc]:
-    #        location_aware += LpAffineExpression([(R[loc][gclusterid], pmatrix_unclustered[ori_loc][gclusterid]) for gclusterid in gclustersids]) <= penalty_vanilla[ori_loc]
+    print("Adding 'no worse than vanilla constraint'")
+    for loc in W:
+        for ori_loc in repre[loc]:
+            location_aware += LpAffineExpression([(R[loc][gclusterid], pmatrix_unclustered[ori_loc][gclusterid]) for gclusterid in gclustersids]) <= penalty_vanilla[ori_loc]
 
 
     print("Done. Writting ouut")
