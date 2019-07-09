@@ -3,8 +3,9 @@ import argparse
 import pdb
 import matplotlib.pyplot as plt
 from util import *
-import scipy
-import seaborn as sns
+import json
+from stem import Flag
+import pickle
 
 parser = argparse.ArgumentParser("")
 parser.add_argument("--solfile", type=str, help="path to .sol file containing the result of the solution of the lp problem")
@@ -21,7 +22,7 @@ def main(args):
         for guard in guards:
             tot_weight += weights[representative][guard]
         break
-
+    print("Tot weight: {}".format(tot_weight))
     with open(args.pmatrix) as f:
         pmatrix = json.load(f)
     with open(args.asn_to_users) as f:
@@ -30,19 +31,54 @@ def main(args):
     cluster_info = parse_client_cluster(args.clusterdescr)
     
     network_state_file = get_network_state(args.ns_file)
+    print("Loaded all data")
     ## Compute the CDF of client resiliency for each ASes
+    guards = [guard for guard in network_state_file.cons_rel_stats if Flag.GUARD in
+                network_state_file.cons_rel_stats[guard].flags and Flag.EXIT not
+                in network_state_file.cons_rel_stats[guard].flags]
     resilience = []
     for representative in weights.keys():
         for asn in cluster_info[representative]:
             avg_resi = 0
             for guardfp in guards:
-                avg_resi += weight[representative][guardfp]*pmatrix[asn][guardf]
-            resilience.append(avg_rsi/tot_weight)
+                if guardfp in weights[representative]: # if not, it means that this guard a 0 prob
+                    avg_resi += weights[representative][guardfp]*(1-pmatrix[asn][guardfp])
+            resilience.append((avg_resi/tot_weight, 1))
+        print("Computed metric for representative {}".format(representative))
+    
+
 
     ## Plot CDF
-    plt.figure()
-    plot_cdf(resilience, args.clusterdescr)
-    plt.savefig()
+    if os.path.exists("figuredata.pickle"):
+        with open("figuredata.pickle", "rb") as f:
+            ax = pickle.load(f)
+    else:
+        ax = plt.subplot(111)
+        plt.xlabel("Expected path resilience", fontsize=18)
+        plt.ylabel("CDF", fontsize=18)
+        ## Computing origin Counter-Raptor weights (only once =)
+        alpha = 0.25
+        cr_resilience = []
+        tot_crweight = 0
+        max_bw = 0
+        for guardfp in guards:
+            if network_state_file.cons_rel_stats[guardfp].consweight > max_bw:
+                max_bw = network_state_file.cons_rel_stats[guardfp].consweight
+        for guardfp in guards:
+            tot_crweight += max_bw*alpha*(1-pmatrix[asn][guardfp])+(1-alpha)*(network_state_file.cons_rel_stats[guard].consweight)
+        for representative in weights.keys():
+            for asn in cluster_info[representative]:
+                avg_rsi = 0
+                for guardfp in guards:
+                    avg_rsi += (max_bw*alpha*(1-pmatrix[asn][guardfp])+(1-alpha)*(network_state_file.cons_rel_stats[guard].consweight)) * (1-pmatrix[asn][guardfp])
+                cr_resilience.append((avg_rsi/tot_crweight, 1))
+        plot_cdf(cr_resilience, "Counter-Raptor alpha=0.25")
+    plot_cdf(resilience, args.clusterdescr.split("/")[-1])
+    plt.legend()
+    filename = args.clusterdescr.split("/")[-1]
+    plt.savefig("cr_optimized_{}.png".format(filename))
+    with open("figuredata.pickle", 'wb') as f:
+        pickle.dump(ax, f)
     plt.close()
 
 

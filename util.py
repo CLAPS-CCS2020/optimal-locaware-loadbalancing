@@ -1,16 +1,27 @@
 import sys, os
 import matplotlib.pyplot as plt
+import pickle
+from slim_desc import *
+import datetime, pytz
+from operator import itemgetter
+import numpy as np
+
+class TorOptions:
+    """Stores some parameters set by Tor."""
+    # given by #define ROUTER_MAX_AGE (60*60*48) in or.h
+    router_max_age = 60*60*48
+    default_bwweightscale = 10000
 
 def parse_sol_file(filename):
     weights = {}
     with open(filename) as f:
         ## parse solfile
-        f.realine()#skip header
+        f.readline()#skip header
         line = f.readline() 
         while line:
             tab = line.split()
             col1 = tab[1].split("_")
-            representative = int(col1[0])
+            representative = col1[0]
             fingerprint = col1[1]
             if representative in weights:
                 weights[representative][fingerprint] = float(tab[2])
@@ -85,4 +96,8 @@ def plot_cdf(vals, label):
     plt.plot(list(map(itemgetter(0), vals)), ys,
             label=label, antialiased=True)
 
-
+def timestamp(t):
+    """Returns UNIX timestamp"""
+    td = t - datetime.datetime(1970, 1, 1, tzinfo=pytz.UTC)
+    ts = td.days*24*60*60 + td.seconds
+    return ts
