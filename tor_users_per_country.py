@@ -5,6 +5,7 @@ from slim_desc import *
 from stem import Flag
 import pickle
 import pdb
+from util import get_network_states, get_network_state
 """
 
 Takes as input network states for a given period and output the distribution of observed users
@@ -21,45 +22,6 @@ parser.add_argument('--end_year', type=int, required=True)
 parser.add_argument('--end_month', type=int, required=True)
 parser.add_argument('--in_dir', required=True)
 parser.add_argument('--out_dir', required=True)
-
-def get_network_states(network_state_files):
-    """
-        Inspired from github.com/torps/pathsim.py and yields
-        slim_desc.NetworkState objects
-    """
-    for ns_file in network_state_files:
-        if (ns_file is not None):
-            # get network state variables from file
-            network_state = get_network_state(ns_file)
-        else:
-            network_state = None
-        yield network_state
-
-    
-
-def get_network_state(ns_file):
-    """Reads in network state file, returns slim_desc.NetworkState object."""
-    
-    cons_rel_stats = {}
-    with open(ns_file, 'rb') as nsf:
-        consensus = pickle.load(nsf)
-        new_descriptors = pickle.load(nsf)
-        hibernating_statuses = pickle.load(nsf)
-        
-    # set variables from consensus
-    cons_valid_after = timestamp(consensus.cons_valid_after)            
-    cons_fresh_until = timestamp(consensus.cons_fresh_until)
-    cons_bw_weights = consensus.cons_bw_weights
-    if (consensus.cons_bwweightscale == None):
-        cons_bwweightscale = TorOptions.default_bwweightscale
-    else:
-        cons_bwweightscale = consensus.cons_bwweightscale
-    for relay in consensus.relays:
-        if (relay in new_descriptors):
-            cons_rel_stats[relay] = consensus.relays[relay]
-    
-    return NetworkState(cons_valid_after, cons_fresh_until, cons_bw_weights,
-        cons_bwweightscale,  hibernating_statuses, cons_rel_stats, new_descriptors)
 
 def main(ns_files, args):
     """

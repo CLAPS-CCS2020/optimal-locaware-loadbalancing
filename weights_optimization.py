@@ -4,7 +4,7 @@ from slim_ases import *
 from pulp import *
 import numpy as np
 import pickle
-from tor_users_per_country import get_network_state
+from util import get_network_state
 from process_ases import GETAS_URL
 import requests
 import random
