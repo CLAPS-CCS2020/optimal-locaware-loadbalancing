@@ -87,14 +87,18 @@ def get_network_state(ns_file):
         cons_bwweightscale,  hibernating_statuses, cons_rel_stats, new_descriptors)
 
 
-def plot_cdf(vals, label):
+def plot_cdf(vals, label, color=None):
     vals = sorted(vals, key=itemgetter(0))
     ys = list(map(itemgetter(1), vals))
     sum_ys = sum(ys)
     ys = [ y / sum_ys for y in ys ]
     ys = np.cumsum(ys)
-    plt.plot(list(map(itemgetter(0), vals)), ys,
-            label=label, antialiased=True)
+    if color:
+        plt.plot(list(map(itemgetter(0), vals)), ys,
+                label=label, color=color, antialiased=True)
+    else:
+        plt.plot(list(map(itemgetter(0), vals)), ys,
+                label=label, antialiased=True)
 
 def timestamp(t):
     """Returns UNIX timestamp"""

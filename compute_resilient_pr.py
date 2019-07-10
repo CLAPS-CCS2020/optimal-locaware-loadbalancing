@@ -6,13 +6,18 @@ from util import *
 import json
 from stem import Flag
 import pickle
+"""
 
+Note: several calls of this script on different --solfile and --clusterdescr would update the figure with more lines
+
+"""
 parser = argparse.ArgumentParser("")
 parser.add_argument("--solfile", type=str, help="path to .sol file containing the result of the solution of the lp problem")
 parser.add_argument("--pmatrix", type=str, help="path to the pmatrix json file")
 parser.add_argument("--asn_to_users", type=str, help="path to the asn_to_users json file")
 parser.add_argument("--clusterdescr", type=str, help="path to the file containing the clustering representative with the linked AS")
 parser.add_argument("--ns_file", type=str, help="network file info")
+parser.add_argument("--color", type=str, default=None)
 
 def main(args):
 
@@ -59,24 +64,31 @@ def main(args):
         ## Computing origin Counter-Raptor weights (only once =)
         alpha = 0.25
         cr_resilience = []
+        vanilla_resilience = []
         tot_crweight = 0
+        tot_consweight = 0
         max_bw = 0
         for guardfp in guards:
             if network_state_file.cons_rel_stats[guardfp].consweight > max_bw:
                 max_bw = network_state_file.cons_rel_stats[guardfp].consweight
+            tot_consweight += network_state_file.cons_rel_stats[guardfp].consweight
         for guardfp in guards:
-            tot_crweight += max_bw*alpha*(1-pmatrix[asn][guardfp])+(1-alpha)*(network_state_file.cons_rel_stats[guard].consweight)
+            tot_crweight += max_bw*alpha*(1-pmatrix[asn][guardfp])+(1-alpha)*(network_state_file.cons_rel_stats[guardfp].consweight)
         for representative in weights.keys():
             for asn in cluster_info[representative]:
                 avg_rsi = 0
+                avg_rsi_vanilla = 0
                 for guardfp in guards:
-                    avg_rsi += (max_bw*alpha*(1-pmatrix[asn][guardfp])+(1-alpha)*(network_state_file.cons_rel_stats[guard].consweight)) * (1-pmatrix[asn][guardfp])
+                    avg_rsi += (max_bw*alpha*(1-pmatrix[asn][guardfp])+(1-alpha)*(network_state_file.cons_rel_stats[guardfp].consweight)) * (1-pmatrix[asn][guardfp])
+                    avg_rsi_vanilla += network_state_file.cons_rel_stats[guardfp].consweight * (1-pmatrix[asn][guardfp])
                 cr_resilience.append((avg_rsi/tot_crweight, 1))
+                vanilla_resilience.append((avg_rsi_vanilla/tot_consweight, 1))
+        plot_cdf(vanilla_resilience, "Vanilla Tor")
         plot_cdf(cr_resilience, "Counter-Raptor alpha=0.25")
-    plot_cdf(resilience, args.clusterdescr.split("/")[-1])
+    plot_cdf(resilience, "opti+"+args.clusterdescr.split("/")[-1], args.color)
     plt.legend()
     filename = args.clusterdescr.split("/")[-1]
-    plt.savefig("cr_optimized_{}.png".format(filename))
+    plt.savefig("cr_optimized.png".format(filename))
     with open("figuredata.pickle", 'wb') as f:
         pickle.dump(ax, f)
     plt.close()
