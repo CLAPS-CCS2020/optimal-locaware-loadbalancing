@@ -404,7 +404,7 @@ def model_opt_problem(W, repre, asn_to_users_file, penalty_vanilla, ns_file, obj
     print("Adding 'no worse than vanilla constraint'")
     for loc in W:
         for ori_loc in repre[loc]:
-            location_aware += LpAffineExpression([(R[loc][gclusterid], pmatrix_unclustered[ori_loc][gclusterid]) for gclusterid in gclustersids]) <= penalty_vanilla[ori_loc]
+            location_aware += LpAffineExpression([(R[loc][gclusterid], pmatrix_unclustered[ori_loc][gclusterid]) for gclusterid in gclustersids]) <= penalty_vanilla[ori_loc] * G
 
 
     print("Done. Writting ouut")

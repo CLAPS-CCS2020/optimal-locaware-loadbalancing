@@ -32,6 +32,9 @@ def main(args):
         pmatrix = json.load(f)
     with open(args.asn_to_users) as f:
         asn_to_users = json.load(f)
+    tot_weight_users = 0
+    for asn in asn_to_users.keys():
+        tot_weight_users += asn_to_users[asn]
 
     cluster_info = parse_client_cluster(args.clusterdescr)
     
@@ -48,7 +51,7 @@ def main(args):
             for guardfp in guards:
                 if guardfp in weights[representative]: # if not, it means that this guard a 0 prob
                     avg_resi += weights[representative][guardfp]*(1-pmatrix[asn][guardfp])
-            resilience.append((avg_resi/tot_weight, 1))
+            resilience.append((avg_resi/tot_weight, asn_to_users[asn]/tot_weight_users))
         print("Computed metric for representative {}".format(representative))
     
 
@@ -62,7 +65,7 @@ def main(args):
         plt.xlabel("Expected path resilience", fontsize=18)
         plt.ylabel("CDF", fontsize=18)
         ## Computing origin Counter-Raptor weights (only once =)
-        alpha = 0.25
+        alpha = 0.5
         cr_resilience = []
         vanilla_resilience = []
         tot_crweight = 0
@@ -72,19 +75,26 @@ def main(args):
             if network_state_file.cons_rel_stats[guardfp].consweight > max_bw:
                 max_bw = network_state_file.cons_rel_stats[guardfp].consweight
             tot_consweight += network_state_file.cons_rel_stats[guardfp].consweight
-        for guardfp in guards:
-            tot_crweight += max_bw*alpha*(1-pmatrix[asn][guardfp])+(1-alpha)*(network_state_file.cons_rel_stats[guardfp].consweight)
+        tot_crweight = {}
         for representative in weights.keys():
             for asn in cluster_info[representative]:
-                avg_rsi = 0
-                avg_rsi_vanilla = 0
+                tot_crweight[asn] = 0.0
                 for guardfp in guards:
-                    avg_rsi += (max_bw*alpha*(1-pmatrix[asn][guardfp])+(1-alpha)*(network_state_file.cons_rel_stats[guardfp].consweight)) * (1-pmatrix[asn][guardfp])
+                    tot_crweight[asn] +=  max_bw*alpha*(1.0-pmatrix[asn][guardfp])+(1.0-alpha)*(network_state_file.cons_rel_stats[guardfp].consweight)
+        for representative in weights.keys():
+            for asn in cluster_info[representative]:
+                avg_rsi = 0.0
+                avg_rsi_vanilla = 0.0
+                for guardfp in guards:
+                    if 1-pmatrix[asn][guardfp] > 1:
+                        print("Resilience {}", 1-pmatrix[asn][guardfp])
+                    avg_rsi = avg_rsi + (max_bw*alpha*(1.0-pmatrix[asn][guardfp])+(1.0-alpha)*(network_state_file.cons_rel_stats[guardfp].consweight)) * (1.0-pmatrix[asn][guardfp])
                     avg_rsi_vanilla += network_state_file.cons_rel_stats[guardfp].consweight * (1-pmatrix[asn][guardfp])
-                cr_resilience.append((avg_rsi/tot_crweight, 1))
-                vanilla_resilience.append((avg_rsi_vanilla/tot_consweight, 1))
+                cr_resilience.append((avg_rsi/tot_crweight[asn], asn_to_users[asn]/tot_weight_users))
+                vanilla_resilience.append((avg_rsi_vanilla/tot_consweight, asn_to_users[asn]/tot_weight_users))
+        print("Max: {}".format(max(cr_resilience)))
         plot_cdf(vanilla_resilience, "Vanilla Tor")
-        plot_cdf(cr_resilience, "Counter-Raptor alpha=0.25")
+        plot_cdf(cr_resilience, "Counter-Raptor alpha={}".format(alpha))
     plot_cdf(resilience, "opti+"+args.clusterdescr.split("/")[-1], args.color)
     plt.legend()
     filename = args.clusterdescr.split("/")[-1]
