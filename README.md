@@ -43,9 +43,11 @@ Linear Programming problem.
       - Compute the joint distribution of Tor clients per country with
         the number of available IP addresses per custumer ASes (using
         BGP databases).  
+
       - Compute the joint distribution of Tor clients per country with
         the distribution of Ping-responsive IP addresses per custumer
-        ASes (using RIPE atlas probes).  
+        ASes (using RIPE atlas probes). 
+
       - Compute the joint distribution of Tor clients per country with
         any genius idea about measuring the proportion of people per AS.
         What about using information on Netflix strategic deployment
@@ -69,7 +71,7 @@ Linear Programming problem.
    Let L = \sum W_l\*R_l, a mixed distribution accounting for client density
    Let P a matrix called Penalty Matrix, for all locations and for all guards.
    P\_{i,j} gives a penalty score associated with the path between location i
-   and guard j (higher is worse).
+   and guard j (higher is worse).  
    Let V_i the expected penalty under vanilla Tor for location i computed as:
    V_i = \sum{G_j} (Pr_i * P_{i,j}
 
@@ -110,18 +112,18 @@ Linear Programming problem.
   Constraints 1), 2) and 3) guarantee to preserve current Tor's
 load-balancing system. Constraint 4) trade-off location-aware benefit with
 defense against guard-placement attacks, as Aaron pointed out in his
-07.03.19 email. Constraint 5 enforces no worse than vanilla for any location
+07.03.19 email. Constraint 5) enforces no worse than vanilla for any location
 
   Assuming a solver works on this (should be); then we may know compute
 the set of weights for the middle position (global for all clients):
 
   Wmg_i = 1 - (L(i)/BW_i)
 
-  Each Tor clients located in AS l selects guard with Pr(G=i) = R_l(i)/\sum(R(j)) and
+  Each Tor clients located in location l selects guard with Pr(G=i) = R_l(i)/\sum(R(j)) and
 middle relay Pr(M=i) = Wmg_i\*BW_i/\sum(Wmg_j\*BW_j)
 
   This procedure guarantees a load factor of 1 on each relay, with a
-minimization of the expected path penalty (for whatever definition penalty).
+minimization of the expected path penalty (for whatever definition of penalty).
 
   Estimated work for procedure B: more than one week full time -
 Difficult bits: computing P, and modelizing the above problem such
