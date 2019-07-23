@@ -69,7 +69,7 @@ Linear Programming problem.
    Let Wgg the fraction of bandwidth of each guard-flagged relay
    dedicated to the entry position, computed as described in
    dir-spec.txt Section 3.8.4.  
-   Let L = \sum W_l\*R_l, a mixed distribution accounting for client density
+   Let L = \sum W_l\*R_l, a mixed distribution accounting for client density  
    Let P a matrix called Penalty Matrix, for all locations and for all guards.
    P\_{i,j} gives a penalty score associated with the path between location i
    and guard j (higher is worse).  
