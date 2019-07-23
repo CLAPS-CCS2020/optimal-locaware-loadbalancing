@@ -97,7 +97,11 @@ def load_and_compute_W_from_clusterinfo(asn_to_users_file, clusterinfo):
             for asn in tab[1].split(',')[:-1]:
                 W[tab[0]] += asn_to_users[asn]
             W[tab[0]] /= tot
-    
+    #Are we using the right files? =)
+    nbr_repre =  sum([len(repre[x]) for x in repre if isinstance(repre[x], list)])
+    assert nbr_repre == len(asn_to_users),\
+    "looks like we don't have the same number of ASes within cluster representatives and the asn_to_json info: {} vs {}"\
+    .format(nbr_repre, len(asn_to_users))
     return W, repre
 
 
@@ -279,7 +283,6 @@ def model_opt_problem(W, repre, asn_to_users_file, penalty_vanilla, ns_file, obj
     
     with open(penalty_vanilla) as f:
         penalty_vanilla = json.load(f)
-
     R = {}
     #Compute total G bandwidth
     G = 0

@@ -1,8 +1,8 @@
 LOCATION_TO_USERS=denasa_complete/asn_to_users.json
 OBJ_FUNC=$1
-PMATRIX=deNasa/lapsit_denasa/denasa_penalty.json
+PMATRIX=denasa_complete/denasa_penalty.json
 #path to vanilla expected penalties for suspicious ASes
-VANILLA_EPL=
+VANILLA_EPL=denasa_complete/denasa_vanilla_epl.json
 #Directory which holds only all clustering_n_badness.txt files
 CLUSTER_CLIENT_INFO=denasa_complete/clustering_files/
 #contains all guard info
