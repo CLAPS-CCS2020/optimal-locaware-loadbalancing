@@ -40,15 +40,16 @@ Linear Programming problem.
     is a fundamental block of the load-balancing system, like Torflow
     measurements are.
     To map towards a distribution of clients per AS, we may either:  
-      - Compute the joint distribution of Tor clients per country with
+
+    - Compute the joint distribution of Tor clients per country with
         the number of available IP addresses per custumer ASes (using
         BGP databases).  
 
-      - Compute the joint distribution of Tor clients per country with
+    - Compute the joint distribution of Tor clients per country with
         the distribution of Ping-responsive IP addresses per custumer
         ASes (using RIPE atlas probes). 
 
-      - Compute the joint distribution of Tor clients per country with
+    - Compute the joint distribution of Tor clients per country with
         any genius idea about measuring the proportion of people per AS.
         What about using information on Netflix strategic deployment
         (i.e., they try to put servers close to people)?
