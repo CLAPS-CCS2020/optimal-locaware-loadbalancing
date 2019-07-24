@@ -8,11 +8,11 @@ CLUSTER_CLIENT_INFO=denasa_complete/clustering_files/
 #contains all guard info
 CLUSTER_GUARD_FILE=denasa_complete/clustersidentity_1552608000
 #contains slim network state info:
-NETWORK_STATE=out/network-state-2019-03/2019-03-01-00-00-00-network_state
+NETWORK_STATE=out/network-state-2019-03/2019-03-15-00-00-00-network_state
 #in which directory .mps and .sol are written
 OUT=$2
 #GP attack parameter
-THETA=8.0
+THETA=5.0
 PWD=$(pwd)
 
 for filepath in $CLUSTER_CLIENT_INFO*; do

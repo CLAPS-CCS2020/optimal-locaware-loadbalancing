@@ -420,8 +420,8 @@ def model_opt_problem(W, repre, asn_to_users_file, penalty_vanilla, ns_file, obj
             outpath = os.path.join(out_dir, "location_aware_with_obj_{}_theta_{}".format(obj_function, theta))
     else:
         outpath = "location_aware.pickle"
-    with open(outpath+".pickle", "wb") as f:
-        pickle.dump(location_aware, f, pickle.HIGHEST_PROTOCOL)
+    #with open(outpath+".pickle", "wb") as f:
+        #pickle.dump(location_aware, f, pickle.HIGHEST_PROTOCOL)
 
     #print("Done. Writting out .lp file")
     #location_aware.writeLP(outpath+".lp")
