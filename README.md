@@ -10,18 +10,27 @@ Tor network.
     fundamental logic of Tor's weight selection, but only *how*
     those weights are computed to offer location-aware protection
 
-  - The location-aware scheme minimizes the probability to end-up with a
-    same AS in both Client-Guard IP-level path and Exit-Destination
-    IP-level path, for all Tor clients. (Q: are AS the relevant threat,
-    or IXPs?) We can extend this by considering 2 AS, 3 AS, ... We also 
-    need to see how to model the Exit-Destination traffic: we cannot pick 
-    an exit node as a function of the traffic destination. Focus on most 
-    common websites? CDNs? IXPs? 
+  - We offer a destination-naive framework to target any objective function. it
+    could be one of the previous works. We specify the problem as a Linear
+    Optimization and improve on multi dimensions specifying security constraints
 
-  - \theta-GP-secure
+  - All relays have the *same* load factor as Vanilla Tor. That is, the network
+    is load-balanced with the same assumptions as Tor today: iff the external
+    systems providing information are rights. (constraint)
+  
+  - \theta-GP-secure (constraint).
 
-  - The network is load-balanced with the same assumptions as Tor today:
-    iff the external systems providing information are rights.
+  - No single user location behaves worse than with Vanilla Tor (constraint)
+
+Our system requires one more information compared to Vanilla Tor to work. In the
+same logic that Vanilla Tor could not achieve to balance users among relay
+without knowing how much bandwidth relay have, we cannot achieve load-balancing
+with a location-aware path selection without knowing both how much bandwidth
+relays have and how much clients are connecting from a given location. That is,
+we require to establish a method to evaluate client density among all possible
+locations. In the following Procedures, we first cover what could potentially be
+an option to evaluate client density, and then we explain how to specify the
+Linear Programming problem.
 
 ## Procedure
 
@@ -31,13 +40,16 @@ Tor network.
     is a fundamental block of the load-balancing system, like Torflow
     measurements are.
     To map towards a distribution of clients per AS, we may either:  
-      - Compute the joint distribution of Tor clients per country with
+
+    - Compute the joint distribution of Tor clients per country with
         the number of available IP addresses per custumer ASes (using
         BGP databases).  
-      - Compute the joint distribution of Tor clients per country with
+
+    - Compute the joint distribution of Tor clients per country with
         the distribution of Ping-responsive IP addresses per custumer
-        ASes (using RIPE atlas probes).  
-      - Compute the joint distribution of Tor clients per country with
+        ASes (using RIPE atlas probes). 
+
+    - Compute the joint distribution of Tor clients per country with
         any genius idea about measuring the proportion of people per AS.
         What about using information on Netflix strategic deployment
         (i.e., they try to put servers close to people)?
@@ -52,34 +64,34 @@ Tor network.
    Let W_l the density of Clients per AS computed from A), such that
    \sum W_l = 1  
    Let R_l a discrete distribution of scores to compute for guard selection
-   common to all clients in AS l.  
+   common to all clients in location l.  
    Let G the total consensus weight of the guard-flagged relays  
    Let Wgg the fraction of bandwidth of each guard-flagged relay
    dedicated to the entry position, computed as described in
    dir-spec.txt Section 3.8.4.  
-   Let L = \sum W_l\*R_l  
-   Let Vuln a discrete distribution of #vulnerable paths for all guards
-   computed from the intersection set of ASes in the forward and reverse
-   paths between Client_AS <-> Guard and Exit <-> Destination.
-   Vuln(i)(j) for client guard i and client AS j gives the vulnerability
-   score associated with the path between guard i and client AS j.
+   Let L = \sum W_l\*R_l, a mixed distribution accounting for client density  
+   Let P a matrix called Penalty Matrix, for all locations and for all guards.
+   P\_{i,j} gives a penalty score associated with the path between location i
+   and guard j (higher is worse).  
+   Let V_i the expected penalty under vanilla Tor for location i computed as:
+   V_i = \sum{G_j} (Pr_i * P_{i,j}
 
    We want to find an allocation of weights for each R_l such that:
 
-      min_R max_j ( [\sum_{j} L(i)*Vuln(i)(j)  for i in all guards])
+      min max_i ( [\sum_{i} L(j)*P_{i,j}  for j in all guards])
   
    alternatively, the following optimization functions are considered:
       
-      min_R max_j ([\sum_{i} W(j)*R(i,j)*Vuln(i)(j)  for j in all locations])
+      min max_i ([\sum_{j} W(i)*R(i,j)*P_{i, j}  for i in all locations])
       
       minimize the total vulnerability experienced by clients as a
       whole:
-      min_R (\sum_i \sum_j W(j)*R(i,j)*Vuln(i,j))
+      min_R (\sum_i \sum_j W(j)*R(i,j)*P_{i,j})
       
-      minimize the largest (over all client locations j) *expected*
+      minimize the largest (over all client locations i) *expected*
       vulnerability:
   
-      min max_j (\sum_i R(i,j)*Vuln(i,j)) 
+      min max_i (\sum_j R(i,j)*P_{i,j}) 
    
    under constraints:
       
@@ -96,30 +108,25 @@ Tor network.
       4) for l in AllLocations:
           max_l max_i R_l(i)/(\sum_{j}R_l(j)*relCost(i)) <= \theta
       
-      5) TODO: a constraint ensuring that the penalty score cannot be
-worse than vanilla Tor for each location (Aaron pointed this out in a
-video chat).
+      5) \sum_{G_k}(R_l(k) * P_{j,k}) <= V_j * \sum_{G_i}(BW_i) 
  
   Constraints 1), 2) and 3) guarantee to preserve current Tor's
 load-balancing system. Constraint 4) trade-off location-aware benefit with
 defense against guard-placement attacks, as Aaron pointed out in his
-07.03.19 email.  
+07.03.19 email. Constraint 5) enforces no worse than vanilla for any location
 
   Assuming a solver works on this (should be); then we may know compute
 the set of weights for the middle position (global for all clients):
 
   Wmg_i = 1 - (L(i)/BW_i)
 
-  Each Tor clients located in AS l selects guard with Pr(G=i) = R_l(i)/\sum(R(j)) and
+  Each Tor clients located in location l selects guard with Pr(G=i) = R_l(i)/\sum(R(j)) and
 middle relay Pr(M=i) = Wmg_i\*BW_i/\sum(Wmg_j\*BW_j)
 
   This procedure guarantees a load factor of 1 on each relay, with a
-minimization of a network adversary's incentives to control a particular
-AS, for all Tor users.
+minimization of the expected path penalty (for whatever definition of penalty).
 
   Estimated work for procedure B: more than one week full time -
-Difficult bits: computing VULN, and modelizing the above problem such
-that it is efficiently solved. (Note: maybe a gradient-based
-optimization solver would do the job easily.. I've no experience for problems with hundred
-thousand of variables...).
+Difficult bits: computing P, and modelizing the above problem such
+that it is efficiently solved.
 
