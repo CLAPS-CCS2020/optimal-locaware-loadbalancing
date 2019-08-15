@@ -59,8 +59,9 @@ def output(locationsinfo, outpath, outname):
         output
     """
     with open(os.path.join(outpath, outname), "w") as f:
-        for location, value in locationsinfo.items():
-            f.write("{} {}\n".format(location, value))
+        for location in locationsinfo:
+            for value in locationsinfo[location]:
+                f.write("{0} {1}\n".format(location, locationsinfo[location][value]))
 
 def compute_cr_weights(args):
     
@@ -74,16 +75,17 @@ def compute_cr_weights(args):
     ## official counter-raptor C implementation
     max_guard_consensus_weight = 0
     guards = {}
-    for relay, values in relays.items():
+    for Index, row in relays.iterrows():
         #Pick guard-only relays
-        if values[4] == "False":
+        if row['IsGuard'] is False:
             continue
-        if values[3] == "True" and values[4] == "True":
+        if row['IsGuard'] is True and row['IsExit'] is True:
             continue
-        guards[relay] = values
-        if values[5] > max_guard_consensus_weight:
-            max_guard_consensus_weight = values[5]
+        guards[row['Name']] = row
+        if row['Consensus(KB/s)'] > max_guard_consensus_weight:
+            max_guard_consensus_weight = row['Consensus(KB/s)']
     print("Max guard value is {}".format(max_guard_consensus_weight))
+    print("Number of guards: {}".format(len(guards)))
     ## pick random resilience to compute weights
     if _TESTING:
         import random
@@ -91,12 +93,12 @@ def compute_cr_weights(args):
             ## pick a random location
             key = random.choice(list(resilience.keys()))
             locationsinfo[location] = {}
-            for guard, values in guards.items():
-                thisguard_res = random.choice(resilience[key])
-                locationsinfo[location][guard] = "{} {} {} {}".format(
-                        guard,
+            for guard in guards.values():
+                thisguard_res = (1-random.choice(list(resilience[key].items()))[1])*max_guard_consensus_weight
+                locationsinfo[location][guard['Name']] = "{0} {1} {2} {3}".format(
+                        guard['Name'],
                         args.alpha*thisguard_res +
-                        (values[5]/max_guard_consensus_weight)*(1-args.alpha),
+                        (guard['Consensus(KB/s)'])*(1-args.alpha),
                         -1,
                         -1)
     
