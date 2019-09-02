@@ -265,6 +265,57 @@ def model_opt_problem_lastor_shadow(shadow_relay_info, obj_function, out_dir=Non
             location_aware += R[loc][guard.name] <= theta*guard.bwconsensus*SWgg
 
 
+def model_opt_problem_for_shadow(W, repre, client_distribution,
+        penalty_vanilla, shadow_relay_dump, obj_function, out_dir=None,
+        pmatrix_file=None, theta=5.0, disable_SWgg=False):
+    
+    with open(shadow_relay_dump) as f:
+        relays = json.load(f)
+    with open(penalty_vanilla) as f:
+        penalty_vabilla = json.load(f)
+
+    guards = {}
+    exits = {}
+    guardexits = {}
+    middles = {}
+    for name, relinfo in relays.items():
+        if relinfo[4] and relinfo[5]:
+            guardexits[name] = relinfo
+        elif relinfo[4]:
+            guards[name] = relinfo
+        elif relinfo[5]:
+            exits[name] = relinfo
+        else:
+            middles[name] = relinfo
+    R = {}
+    G = 0
+    max_cons_weight = 0.0
+    for name, relinfo in guards.items():
+        G += relinfo[6]
+        if relinfo[6] > max_cons_weight:
+            max_cons_weight = relinfo[6]
+    print("Total guard consensus weight: {0}, max observed consenus weight: {1}".format(G, max_cons_weight))
+    E, D = 0, 0
+    for name, relinfo in exits.items():
+        E += relinfo[6]
+    for name, relinfo in guardexits.items():
+        D += relinfo[6]
+
+    print("E:{}, D:{} and G:{}".format(E,D,G))
+    SWgg = (E + D)/G #SWgg for Scarce Wgg
+    print("New Wgg value from same strategy as Waterfillign Section 4.3 is: {}".format(SWgg))
+
+    with open(pmatrix_file, 'r') as f:
+        pmatrix_unclustered = json.load(f)
+    
+    pmatrix = produce_clustered_pmatrix(pmatrix_unclustered, repre, client_distribution, guards)
+    bandwidth-weights = 
+    Wgg = network_state.cons_bw_weights['Wgg']/network_state.cons_bwweightscale
+    if not disable_SWgg:
+        Wgg = SWgg
+    print("Wgg={}".format(Wgg))
+    #model the problem
+
 def model_opt_problem(W, repre, asn_to_users_file, penalty_vanilla, ns_file, obj_function, cluster_file=None, out_dir=None, pmatrix_file=None,
         theta=2.0, reduced_as_to=None, reduced_guards_to=None, disable_SWgg=False):
     

@@ -61,7 +61,7 @@ def output(locationsinfo, outpath, outname):
     with open(os.path.join(outpath, outname), "w") as f:
         for location in locationsinfo:
             for value in locationsinfo[location]:
-                f.write("{0} {1}\n".format(location, locationsinfo[location][value]))
+                f.write("{0}_{1}\n".format(location, locationsinfo[location][value]))
 
 def compute_cr_weights(args):
     
@@ -97,8 +97,8 @@ def compute_cr_weights(args):
                 thisguard_res = (1-random.choice(list(resilience[key].items()))[1])*max_guard_consensus_weight
                 locationsinfo[location][guard['Name']] = "{0} {1} {2} {3}".format(
                         guard['Name'],
-                        args.alpha*thisguard_res +
-                        (guard['Consensus(KB/s)'])*(1-args.alpha),
+                        int(args.alpha*thisguard_res +
+                        (guard['Consensus(KB/s)'])*(1-args.alpha)),
                         -1,
                         -1)
     
