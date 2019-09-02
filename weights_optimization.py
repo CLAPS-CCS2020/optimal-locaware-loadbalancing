@@ -13,6 +13,7 @@ from stem import Flag
 import json
 import math
 from subprocess import Popen, PIPE
+form bandwidth-weights import *
 
 """
 This script receives data relative to Client-to-country distribution, AS information and penalty
@@ -278,28 +279,27 @@ def model_opt_problem_for_shadow(W, repre, client_distribution,
     exits = {}
     guardexits = {}
     middles = {}
+    G, E, D, M = 0, 0, 0, 0
     for name, relinfo in relays.items():
         if relinfo[4] and relinfo[5]:
             guardexits[name] = relinfo
+            D+=relinfo[6]
         elif relinfo[4]:
             guards[name] = relinfo
+            G+=relinfo[6]
         elif relinfo[5]:
             exits[name] = relinfo
+            E += relinfo[6]
         else:
             middles[name] = relinfo
+            M+=relinfo[6]
     R = {}
-    G = 0
     max_cons_weight = 0.0
     for name, relinfo in guards.items():
         G += relinfo[6]
         if relinfo[6] > max_cons_weight:
             max_cons_weight = relinfo[6]
     print("Total guard consensus weight: {0}, max observed consenus weight: {1}".format(G, max_cons_weight))
-    E, D = 0, 0
-    for name, relinfo in exits.items():
-        E += relinfo[6]
-    for name, relinfo in guardexits.items():
-        D += relinfo[6]
 
     print("E:{}, D:{} and G:{}".format(E,D,G))
     SWgg = (E + D)/G #SWgg for Scarce Wgg
@@ -315,6 +315,8 @@ def model_opt_problem_for_shadow(W, repre, client_distribution,
         Wgg = SWgg
     print("Wgg={}".format(Wgg))
     #model the problem
+    bwweight = BandwidthWeights()
+    casename, Wgg, Wgd, Wee, Wed, Wmg, Wme, Wmd = bwweight.recompute_bwweights(G, M, D, E, G+M+D+E)
 
 def model_opt_problem(W, repre, asn_to_users_file, penalty_vanilla, ns_file, obj_function, cluster_file=None, out_dir=None, pmatrix_file=None,
         theta=2.0, reduced_as_to=None, reduced_guards_to=None, disable_SWgg=False):
