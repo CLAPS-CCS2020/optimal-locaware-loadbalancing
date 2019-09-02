@@ -87,21 +87,18 @@ def compute_cr_weights(args):
     print("Max guard value is {}".format(max_guard_consensus_weight))
     print("Number of guards: {}".format(len(guards)))
     ## pick random resilience to compute weights
-    if _TESTING:
-        import random
-        for location in locations:
-            ## pick a random location
-            key = random.choice(list(resilience.keys()))
-            locationsinfo[location] = {}
-            for guard in guards.values():
-                thisguard_res = (1-random.choice(list(resilience[key].items()))[1])*max_guard_consensus_weight
-                locationsinfo[location][guard['Name']] = "{0} {1} {2} {3}".format(
-                        guard['Name'],
-                        int(args.alpha*thisguard_res +
-                        (guard['Consensus(KB/s)'])*(1-args.alpha)),
-                        -1,
-                        -1)
-    
+    for location in locations:
+        ## pick a random location
+        locationsinfo[location] = {}
+        for guard in guards.values():
+            thisguard_res = (1-resilience[location][guard['Name']])*max_guard_consensus_weight
+            locationsinfo[location][guard['Name']] = "{0} {1} {2} {3}".format(
+                    guard['Name'],
+                    int(args.alpha*thisguard_res +
+                    (guard['Consensus(KB/s)'])*(1-args.alpha)),
+                    -1,
+                    -1)
+
 
     return locationsinfo
 
