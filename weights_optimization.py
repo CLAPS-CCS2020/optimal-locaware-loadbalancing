@@ -13,7 +13,7 @@ from stem import Flag
 import json
 import math
 from subprocess import Popen, PIPE
-form bandwidth-weights import *
+from bandwidth_weights import *
 
 """
 This script receives data relative to Client-to-country distribution, AS information and penalty
@@ -269,11 +269,13 @@ def model_opt_problem_lastor_shadow(shadow_relay_info, obj_function, out_dir=Non
 def model_opt_problem_for_shadow(W, repre, client_distribution,
         penalty_vanilla, shadow_relay_dump, obj_function, out_dir=None,
         pmatrix_file=None, theta=5.0, disable_SWgg=False):
-    
+    with open(client_distribution) as f:
+        client_distribution = json.load(f)
+
     with open(shadow_relay_dump) as f:
         relays = json.load(f)
     with open(penalty_vanilla) as f:
-        penalty_vabilla = json.load(f)
+        penalty_vanilla = json.load(f)
 
     guards = {}
     exits = {}
@@ -585,15 +587,12 @@ if __name__ == "__main__":
                 print("Next theta tested value: {}".format(cur_theta))
 
         elif args.in_shadow:
-            model_opt_problem_lastor_shadow(W, args.shadow_relay_info, args.obj_function, out_dir=args.out_dir,
-                    pmatrix_file=args.pmatrix, theta=args.theta, disable_SWgg=False)
             model_opt_problem_for_shadow(W, repre, args.tor_users_to_location,
                                          args.penalty_vanilla,
                                          args.network_state, args.obj_function,
                                          theta=args.theta,
-                                         cluster_file=args.cluster_file,
-                                         pmatrix_file=argss.pmatrix,
-                                         out_dir=args.out_dir
+                                         pmatrix_file=args.pmatrix,
+                                         out_dir=args.out_dir,
                                          disable_SWgg=args.disable_SWgg)
                     
         else:
