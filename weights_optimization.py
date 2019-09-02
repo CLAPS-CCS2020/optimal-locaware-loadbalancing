@@ -45,7 +45,7 @@ parser.add_argument("--binary_search_theta", action='store_true', default=False)
 parser.add_argument("--theta", type=float, help="set theta value for gpa", default=2.0)
 ## Note: simple at first. Later we may try to solve the problem for following network states and initialize variables of the n+1 state with
 ## the solution computed for state n
-parser.add_argument("--network_state", help="filepath to the network state containing Tor network's data")
+parser.add_argument("--network_state", help="filepath to the network state containing Tor network's data (shadow_relay_dump in case of shadow simulation")
 
 ELASTICITY = 0.001
 
@@ -307,16 +307,80 @@ def model_opt_problem_for_shadow(W, repre, client_distribution,
 
     with open(pmatrix_file, 'r') as f:
         pmatrix_unclustered = json.load(f)
-    
     pmatrix = produce_clustered_pmatrix(pmatrix_unclustered, repre, client_distribution, guards)
-    bandwidth-weights = 
-    Wgg = network_state.cons_bw_weights['Wgg']/network_state.cons_bwweightscale
+    
+    bwweight = BandwidthWeights()
+    casename, Wgg, Wgd, Wee, Wed, Wmg, Wme, Wmd = bwweight.recompute_bwweights(G, M, D, E, G+M+D+E)
+    SWgg = (E + D)/G #SWgg for Scarce Wgg
     if not disable_SWgg:
         Wgg = SWgg
     print("Wgg={}".format(Wgg))
     #model the problem
-    bwweight = BandwidthWeights()
-    casename, Wgg, Wgd, Wee, Wed, Wmg, Wme, Wmd = bwweight.recompute_bwweights(G, M, D, E, G+M+D+E)
+    location_aware = LpProblem("Location aware selection", LpMinimize)
+    
+    for loc in W:
+        R[loc] = LpVariable.dicts(loc, list(guards.keys()), lowBound = 0,
+                upBound=Wgg*G)
+    
+    location_aware = LpProblem("Optimal location-aware path selection", LpMinimize)
+    # Write a minmax problem as a min of a upper bound
+    #
+    objective = LpVariable("L_upper_bound", lowBound = 0)
+    # Compute L as affine expressions involving LpVariables
+    print("Computing Affine Expressions for L, i.e., \sum W_iR_i")
+    L = {}
+    for guard in guards.keys():
+        L[guard] = LpAffineExpression([(R[loc][guard], W[loc]) for loc in W],
+                                      name="L({})".format(guard))
+    print("Done.")
+    ##  min_R max_j ( [\sum_{j} L(i)*pmatrix(j)(i)  for i in all guards])
+    if obj_function == 3:
+        print("Computing the lpSum of LpAffineExpressions as an objective function... (this can take time)")
+        location_aware += lpSum([LpAffineExpression([(R[loc][guard], W[loc]*pmatrix[loc][guard]) for loc in W]) for guard in guards]), "Z"
+    ##   min max_j (\sum_i R(i,j)*pmatrix(i,j)) 
+    else:
+        print("Objective function unsupported")
+        sys.exit(1)
+
+    print("Done.")
+    # Now set of constraints:
+    # Location scores must distribute G*Wgg quantity
+    print("Computing constraints \sum R_l(i) == G*Wgg")
+    for loc in W:
+        sum_R = lpSum([R[loc][guard] for guard in guards])
+        location_aware += sum_R == G*Wgg, "\sum R(i) == G*Wgg for loc {}".format(loc)
+        #location_aware += sum_R >= G*Wgg-G*Wgg*ELASTICITY, "\sum R(i) >= G*Wgg-G*Wgg*elasticity for loc {}".format(loc)
+        #location_aware += sum_R <= G*Wgg+G*Wgg*ELASTICITY, "\sum R(i) <= G*Wgg-G*Wgg*elasticity for loc {}".format(loc)
+    print("Done.")
+    print("Computing constraints L(i) <= BW_i")
+    for guard in guards:
+        location_aware += L[guard] <= guards[guard][6], "L(i) <= BW_i for guard {}".format(guard)
+
+    ## Missing constraint for theta-GP-Secure TODO
+        
+    #Temporally wating for theta-GP-secure stuffs
+    #No relay gets more than theta times its original selection probability
+    print("GPA constraint, using theta = {} and relCost(i) = BW_i/sum_j(BW_j)".format(theta))
+    for loc in W:
+        for guard in guards:
+            location_aware += R[loc][guard] <= theta*guards[guard][6]*Wgg
+    print("Done.")
+    print("Adding 'no worse than vanilla constraint'")
+    for loc in W:
+        for ori_loc in repre[loc]:
+            location_aware += LpAffineExpression([(R[loc][guard], pmatrix_unclustered[ori_loc][guard]) for guard in guards]) <= penalty_vanilla[ori_loc] * G
+
+    print("Done. Writting ouut")
+
+    # Write problem out:
+    if out_dir:
+        outpath = os.path.join(out_dir, "location_aware_with_obj_{}_theta_{}".format(obj_function, theta))
+    else:
+        outpath = "location_aware.pickle"
+    #location_aware.writeLP(outpath+".lp")
+    print("Done. Writtin out .mps file")
+    location_aware.writeMPS(outpath+".mps")
+    #location_aware.solve()
 
 def model_opt_problem(W, repre, asn_to_users_file, penalty_vanilla, ns_file, obj_function, cluster_file=None, out_dir=None, pmatrix_file=None,
         theta=2.0, reduced_as_to=None, reduced_guards_to=None, disable_SWgg=False):
@@ -523,6 +587,14 @@ if __name__ == "__main__":
         elif args.in_shadow:
             model_opt_problem_lastor_shadow(W, args.shadow_relay_info, args.obj_function, out_dir=args.out_dir,
                     pmatrix_file=args.pmatrix, theta=args.theta, disable_SWgg=False)
+            model_opt_problem_for_shadow(W, repre, args.tor_users_to_location,
+                                         args.penalty_vanilla,
+                                         args.network_state, args.obj_function,
+                                         theta=args.theta,
+                                         cluster_file=args.cluster_file,
+                                         pmatrix_file=argss.pmatrix,
+                                         out_dir=args.out_dir
+                                         disable_SWgg=args.disable_SWgg)
                     
         else:
             model_opt_problem(W, repre, args.tor_users_to_location, args.penalty_vanilla, args.network_state, args.obj_function, theta=args.theta,
