@@ -13,7 +13,8 @@ OUTPUT to a file: lines of:
 import os, sys
 import argparse
 import json, pandas
-
+from util import parse_client_cluster
+from bandwidth_weights import *
 parser = argparse.ArgumentParser(description="Produce a file containing weights\
         which can be loaded by clients within our shadow simulations")
 
@@ -27,12 +28,21 @@ cr_parser.add_argument('--resilience', help="Contains CR's resilience\
         information for each of Shadow's location. This resilience file is\
         bounded to relchoice, since it must be computed for this shadow topology")
 
-cr_parser.add_argument('--network_info', help="")
-cr_parser.add_argument('--shadowlocations', help="path to file containing\
+cr_parser.add_argument('--client_distribution', help="path to file containing\
         shadow locations {'citycode':weight}")
 cr_parser.add_argument('--alpha', type=float, default=0.5)
 cr_parser.add_argument('--outpath')
 cr_parser.add_argument('--outname')
+
+claps_cr_parser = sub.add_parser("CLAPS_CR", help="Convert to CLAPS Counter-Raptort")
+claps_cr_parser.add_argument('--resilience', help="Contains the path to the penalty matrix")
+claps_cr_parser.add_argument('--relchoice', help="path to file containing choice of\
+        relays for the simulation we expect to run")
+claps_cr_parser.add_argument('--client_distribution', help="path to file containing\
+        shadow locations {'citycode':weight}")
+claps_cr_parser.add_argument('--cluster_repre', help="path to the file containing cluster representative")
+claps_cr_parser.add_argument('--outpath', help="")
+claps_cr_parser.add_argument('--outname', help="")
 
 ##DeNASA
 denasa_parser = sub.add_parser("DeNASA", help="Convert to DeNASA weights")
@@ -63,16 +73,7 @@ def output(locationsinfo, outpath, outname):
             for value in locationsinfo[location]:
                 f.write("{0}_{1}\n".format(location, locationsinfo[location][value]))
 
-def compute_cr_weights(args):
-    
-    locationsinfo = {}
-    relays = parse_relaychoice(args.relchoice)
-    with open(args.resilience) as f:
-        resilience = json.load(f)
-    with open(args.shadowlocations) as f:
-        locations = json.load(f)
-    ## compute the max guard consenus weights, as done in the
-    ## official counter-raptor C implementation
+def _get_max_guardconsweight(relays):
     max_guard_consensus_weight = 0
     guards = {}
     for Index, row in relays.iterrows():
@@ -84,6 +85,19 @@ def compute_cr_weights(args):
         guards[row['Name']] = row
         if row['Consensus(KB/s)'] > max_guard_consensus_weight:
             max_guard_consensus_weight = row['Consensus(KB/s)']
+    return max_guard_consensus_weight, guards
+
+def compute_cr_weights(args):
+    
+    locationsinfo = {}
+    relays = parse_relaychoice(args.relchoice)
+    with open(args.resilience) as f:
+        resilience = json.load(f)
+    with open(args.client_distribution) as f:
+        locations = json.load(f)
+    ## compute the max guard consenus weights, as done in the
+    ## official counter-raptor C implementation
+    max_guard_consensus_weight, guards = _get_max_guardconsweight(relays)
     print("Max guard value is {}".format(max_guard_consensus_weight))
     print("Number of guards: {}".format(len(guards)))
     ## pick random resilience to compute weights
@@ -94,15 +108,45 @@ def compute_cr_weights(args):
             thisguard_res = (1-resilience[location][guard['Name']])*max_guard_consensus_weight
             locationsinfo[location][guard['Name']] = "{0} {1} {2} {3}".format(
                     guard['Name'],
-                    int(args.alpha*thisguard_res +
-                    (guard['Consensus(KB/s)'])*(1-args.alpha)),
+                    int(round(args.alpha*thisguard_res +
+                    (guard['Consensus(KB/s)'])*(1-args.alpha))),
                     -1,
                     -1)
-
-
     return locationsinfo
 
-
+def compute_claps_cr_weights(args):
+    locationsinfo = {}
+    relays = parse_relaychoice(args.relchoice)
+    with open(args.resilience) as f:
+        penalties = json.load(f)
+    with open(args.client_distribution) as f:
+        locations = json.load(f)
+    repre = parse_clinet_cluster(args.cluster_repre)
+    max_guard_consensus_weight, guards = _get_max_guardconsweight(relays)
+    G, E, D, M, T = 0, 0, 0, 0, 0
+    
+    for Index, row in relays.iterrows():
+        if row['IsGuard'] is True and row['IsExit'] is True:
+            D += row['Consensus(KB/s)']
+        elif row['IsGuard'] is True:
+            G += row['Consensus(KB/s)']
+        elif row['IsExit'] is True:
+            E += row['Consensus(KB/s)']
+        else:
+            M += row['Consensus(KB/s)']
+    bwweights = BandwidthWeights()
+    casename, Wgg, Wgd, Wee, Wed, Wmg, Wme, Wmd =
+    bwweights.recompute_bwweights(G, M, E, D, G+M+E+D, SWgg=True)
+    print("Recompute bandwidth weight output Wmg: {}".format(Wmg))
+    for location in repre:
+        for guard in guards
+            thisguard_res = (1-penalties[location][guard['Name']])*max_guard_consensus_weight
+            locationsinfo[location][guard['Name']] = "{0} {1} {2} {3}".format(
+                guard['Name'],
+                int(round(args.alpha*thisguard_res+
+                    guard['Consensus(KB/s']*(1-args.alpha))),
+                Wmg,
+                -1)
 
 
 
@@ -111,6 +155,9 @@ if __name__ == "__main__":
     
     if args.sub == "CR":
         locationsinfo = compute_cr_weights(args)
+        output(locationsinfo, args.outpath, args.outname)
+    elif args.sub == "CLAPS_CR":
+        pass
         output(locationsinfo, args.outpath, args.outname)
     
 

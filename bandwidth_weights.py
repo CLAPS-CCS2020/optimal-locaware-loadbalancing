@@ -45,7 +45,7 @@ class BandwidthWeights(object):
         return self.bww_errors.NO_ERROR
 
 
-    def recompute_bwweights(self, G, M, E, D, T):
+    def recompute_bwweights(self, G, M, E, D, T, SWgg=False):
         """Detects in which network case load we are according to section 3.8.3
         of dir-spec.txt from Tor' specifications and recompute bandwidth weights
         """
@@ -142,9 +142,18 @@ class BandwidthWeights(object):
                     casename = "Case 3a (E scarce)"
                     Wee = Wed = weightscale
                     Wmd = Wgd = Wme = 0
-                    if (G < M): Wmg = 0
-                    else: Wmg = (weightscale*(G-M))/(2*G)
-                    Wgg = weightscale - Wmg
+                    if (G < M): 
+                        Wmg = 0
+                    else:
+                        if SWgg:
+                            # We only care about case 3a in this project 'cause that's the one
+                            # we currently always have
+                            print("Computing Wgg and Wmg under the condition that the total guard bandwidth is equal t the total exit bandwidth")
+                            Wgg = weightscale*(E+D)/G
+                            Wmg = weightscale - Wgg
+                        else:
+                            Wmg = (weightscale*(G-M))/(2*G)
+                            Wgg = weightscale - Wmg
             else:
                 #subcase S+D >= T/3
                 if (G < E):
