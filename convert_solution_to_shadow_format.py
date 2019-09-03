@@ -38,8 +38,6 @@ claps_cr_parser = sub.add_parser("CLAPS_CR", help="Convert to CLAPS Counter-Rapt
 claps_cr_parser.add_argument('--resilience', help="Contains the path to the penalty matrix")
 claps_cr_parser.add_argument('--relchoice', help="path to file containing choice of\
         relays for the simulation we expect to run")
-claps_cr_parser.add_argument('--client_distribution', help="path to file containing\
-        shadow locations {'citycode':weight}")
 claps_cr_parser.add_argument('--cluster_repre', help="path to the file containing cluster representative")
 claps_cr_parser.add_argument('--outpath', help="")
 claps_cr_parser.add_argument('--outname', help="")
@@ -119,8 +117,6 @@ def compute_claps_cr_weights(args):
     relays = parse_relaychoice(args.relchoice)
     with open(args.resilience) as f:
         penalties = json.load(f)
-    with open(args.client_distribution) as f:
-        locations = json.load(f)
     repre = parse_clinet_cluster(args.cluster_repre)
     max_guard_consensus_weight, guards = _get_max_guardconsweight(relays)
     G, E, D, M, T = 0, 0, 0, 0, 0
@@ -147,9 +143,7 @@ def compute_claps_cr_weights(args):
                     guard['Consensus(KB/s']*(1-args.alpha))),
                 Wmg,
                 -1)
-
-
-
+    return locationsinfo
 if __name__ == "__main__":
     args = parser.parse_args()
     
@@ -157,7 +151,7 @@ if __name__ == "__main__":
         locationsinfo = compute_cr_weights(args)
         output(locationsinfo, args.outpath, args.outname)
     elif args.sub == "CLAPS_CR":
-        pass
+        locationsinfo = compute_claps_cr_weights(args)
         output(locationsinfo, args.outpath, args.outname)
     
 
