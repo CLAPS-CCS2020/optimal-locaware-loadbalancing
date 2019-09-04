@@ -1,10 +1,10 @@
 LOCATION_TO_USERS=shadow_data/client-distribution.json
-OBJ_FUNC=$1
+OBJ_FUNC=3
 PMATRIX=shadow_data/counter_raptor/penalty/shadow_cr_penalties.json
 VANILLA_EPL=shadow_data/counter_raptor/penalty/shadow_cr_epls.json
 CLUSTER_CLIENT_INFO=shadow_data/counter_raptor/clusters/
-OUT=$2
-THETA=$3
+OUT=$1
+THETA=5.0
 PWD=$(pwd)
 
 for filepath in $CLUSTER_CLIENT_INFO*; do
