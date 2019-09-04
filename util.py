@@ -100,6 +100,26 @@ def plot_cdf(vals, label, color=None):
         plt.plot(list(map(itemgetter(0), vals)), ys,
                 label=label, antialiased=True)
 
+def produce_clustered_pmatrix(pmatrix, repre, asn_to_users, guards):
+    """
+    Computer a pmatrix cluster -> guard -> pvalue as the weighted sum
+    of penalties given all ases of a given cluster, according to their number
+    of users
+    """
+    pmatrix_clustered = {}
+    for representative, ases in repre.items():
+        pmatrix_clustered[representative] = {}
+        for guard in guards:
+            tot = 0
+            tot_users = 0
+            for asn in ases:
+                tot += pmatrix[asn][guard]*asn_to_users[asn]
+                tot_users += asn_to_users[asn]
+            pmatrix_clustered[representative][guard] = tot/tot_users
+
+    return pmatrix_clustered
+
+
 def timestamp(t):
     """Returns UNIX timestamp"""
     td = t - datetime.datetime(1970, 1, 1, tzinfo=pytz.UTC)

@@ -130,3 +130,45 @@ minimization of the expected path penalty (for whatever definition of penalty).
 Difficult bits: computing P, and modelizing the above problem such
 that it is efficiently solved.
 
+## Install 
+
+# Requirements 
+
+- stem, pandas, numpy, pycountry
+- download descriptors from collector.torproject.org
+- install Clp using coinbrew install script
+- download userstats info from metrics
+- Rob's shadow map built from Ripe Atlas Probes
+
+## Steps
+
+- Produce network_state files with process_consensuses.py 
+- Produce Tor client distribution
+
+### Counter-Raptor General analysis 
+
+- Get the penalty matrix and the expected vanilla penalties
+- Get the cluster info
+- Produce the clusterd guard identity file (useless step currently
+  though. Has been created for, apparently, uncessary optimization)
+- Edit model_and_solve_cr.sh's variable path and run it
+- Edit run_cr_analyze_and_plot.sh and run it to get some nicy figure
+
+### Counter-Raptor Shadow analysis
+
+- Get tor-claps
+- Get Shadow and the new shadow tor plugin (frochet's version)
+- Generate simulation files (the output relay.choices.csv must be used
+  to generate penalies)
+- Get the penalty matrix and the expected vanilla penalties
+- Get the cluster info
+- Edit model_and_solve_cr_shadow.sh's variable path and run it
+- Convert the sol file to its shadow format using
+  convert_solution_to_shadow_format.py (Not yet available)
+- Convert Counter-Raptor weights to its shadow format using
+  convert_solution_to_shadow_format.py (partially available ~ Resilience
+  not account for the last part of the Counter-Raptor paper, where
+  Resiliences are re-computed)
+- use the shadowtortools post tools to update the topology with the
+  cluster
+

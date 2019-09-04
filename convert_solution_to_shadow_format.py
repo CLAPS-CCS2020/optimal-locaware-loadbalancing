@@ -13,8 +13,10 @@ OUTPUT to a file: lines of:
 import os, sys
 import argparse
 import json, pandas
-from util import parse_client_cluster
+from util import parse_client_cluster, produce_clustered_pmatrix
 from bandwidth_weights import *
+from weights_optimization import load_and_compute_W_from_clusterinfo
+
 parser = argparse.ArgumentParser(description="Produce a file containing weights\
         which can be loaded by clients within our shadow simulations")
 
@@ -39,8 +41,12 @@ claps_cr_parser.add_argument('--resilience', help="Contains the path to the pena
 claps_cr_parser.add_argument('--relchoice', help="path to file containing choice of\
         relays for the simulation we expect to run")
 claps_cr_parser.add_argument('--cluster_repre', help="path to the file containing cluster representative")
+claps_cr_parser.add_argument('--client_distribution', help="path to file containing\
+        shadow locations {'citycode':weight}")
+claps_cr_parser.add_argument('--sol_file', help="path to the solver solution file of the CLAPS counter raptor")
 claps_cr_parser.add_argument('--outpath', help="")
 claps_cr_parser.add_argument('--outname', help="")
+claps_cr_parser.add_argument('--alpha', type=float, default=0.5)
 
 ##DeNASA
 denasa_parser = sub.add_parser("DeNASA", help="Convert to DeNASA weights")
@@ -100,7 +106,6 @@ def compute_cr_weights(args):
     print("Number of guards: {}".format(len(guards)))
     ## pick random resilience to compute weights
     for location in locations:
-        ## pick a random location
         locationsinfo[location] = {}
         for guard in guards.values():
             thisguard_res = (1-resilience[location][guard['Name']])*max_guard_consensus_weight
@@ -117,31 +122,35 @@ def compute_claps_cr_weights(args):
     relays = parse_relaychoice(args.relchoice)
     with open(args.resilience) as f:
         penalties = json.load(f)
-    repre = parse_clinet_cluster(args.cluster_repre)
-    max_guard_consensus_weight, guards = _get_max_guardconsweight(relays)
-    G, E, D, M, T = 0, 0, 0, 0, 0
+    with open(args.client_distribution) as f:
+        locations = json.load(f)
     
-    for Index, row in relays.iterrows():
-        if row['IsGuard'] is True and row['IsExit'] is True:
-            D += row['Consensus(KB/s)']
-        elif row['IsGuard'] is True:
-            G += row['Consensus(KB/s)']
-        elif row['IsExit'] is True:
-            E += row['Consensus(KB/s)']
-        else:
-            M += row['Consensus(KB/s)']
-    bwweights = BandwidthWeights()
-    casename, Wgg, Wgd, Wee, Wed, Wmg, Wme, Wmd =
-    bwweights.recompute_bwweights(G, M, E, D, G+M+E+D, SWgg=True)
-    print("Recompute bandwidth weight output Wmg: {}".format(Wmg))
-    for location in repre:
-        for guard in guards
-            thisguard_res = (1-penalties[location][guard['Name']])*max_guard_consensus_weight
+    solinfo = {}
+    #parse information from the solution file
+    with open(args.sol_file) as f:
+        for line in f:
+            loc, relayname = line.split(" ")[0].split("_")
+            if loc not in solinfo:
+                solinfo[loc] = {}
+            weight = int(line.split(" ")[1])
+            solinfo[loc][relayname] = weight
+
+    W = load_and_compute_W_from_clusterinfo(locations, args.cluster_file)
+    #Re-compute L! TODO need cluster location distribution
+    
+
+    for location in solinfo
+        locationsinfo[location] = {}
+        for guard in guards.values():
+            if guard['Name'] in solinfo[location]:
+                thisguard_weight = solinfo[location][guard['Name']]
+            else:
+                thisguard_weight = 0
+            ## look into parsed sol file
             locationsinfo[location][guard['Name']] = "{0} {1} {2} {3}".format(
                 guard['Name'],
-                int(round(args.alpha*thisguard_res+
-                    guard['Consensus(KB/s']*(1-args.alpha))),
-                Wmg,
+                thisguard_weight,
+                int(round(Wmg*guard['Consensus(KB/s)']/10000.0)),
                 -1)
     return locationsinfo
 if __name__ == "__main__":

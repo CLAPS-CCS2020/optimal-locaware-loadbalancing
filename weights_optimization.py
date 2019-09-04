@@ -4,7 +4,7 @@ from slim_ases import *
 from pulp import *
 import numpy as np
 import pickle
-from util import get_network_state
+from util import get_network_state, produce_clustered_pmatrix
 from process_ases import GETAS_URL
 import requests
 import random
@@ -154,30 +154,6 @@ def load_and_compute_W(tor_users_to_location_file, cust_locations_file, reduced_
     for loc, value in tor_users_per_as.items():
         W[loc] = value/tot
     return W
-
-def produce_clustered_pmatrix(pmatrix, repre, asn_to_users, gclusters):
-    """
-    Computer a pmatrix cluster -> guard -> pvalue as the weighted sum
-    of penalties given all ases of a given cluster, according to their number
-    of users
-    """
-    pmatrix_clustered = {}
-    for representative, ases in repre.items():
-        pmatrix_clustered[representative] = {}
-        for gclusterid in gclusters:
-            tot = 0
-            tot_users = 0
-            for asn in ases:
-                tot += pmatrix[asn][gclusterid]*asn_to_users[asn]
-                tot_users += asn_to_users[asn]
-            pmatrix_clustered[representative][gclusterid] = tot/tot_users
-
-    return pmatrix_clustered
-
-
-            
-
-
 
 def build_fake_pmatrix_profile(guards, W):
     """
