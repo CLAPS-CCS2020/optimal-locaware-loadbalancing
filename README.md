@@ -160,6 +160,12 @@ that it is efficiently solved.
 - Get Shadow and the new shadow tor plugin (frochet's version)
 - Generate simulation files (the output relay.choices.csv must be used
   to generate penalies)
+  - The stage command takes 2 more inputs (the city_trait file and the
+    UN WUP2018 file). Both are inside the resource directory of my
+    shadow-tor-private repo.
+  - The generate step takes one more argument (city_probs) which is the
+    path to the city distribution probability computed at the sate
+    command
 - Get the penalty matrix and the expected vanilla penalties
 - Get the cluster info
 - Edit model_and_solve_cr_shadow.sh's variable path and run it
