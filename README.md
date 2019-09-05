@@ -156,25 +156,27 @@ that it is efficiently solved.
 
 ### Counter-Raptor Shadow analysis
 
-- Get tor-claps
+- Get tor-claps (https://github.com/frochet/tor-claps-0.3.5.8)
 - Get Shadow and the new shadow tor plugin (frochet's version)
+  - https://github.com/frochet/shadow-tor-private
 - Generate simulation files (the output relay.choices.csv must be used
   to generate penalies)
   - The stage command takes 2 more inputs (the city_trait file and the
     UN WUP2018 file). Both are inside the resource directory of my
-    shadow-tor-private repo.
+    shadow-tor-private repo (see output of shadowtortools stage --help)
   - The generate step takes one more argument (city_probs) which is the
-    path to the city distribution probability computed at the sate
+    path to the city distribution probability computed at the stage
     command
 - Get the penalty matrix and the expected vanilla penalties
 - Get the cluster info
-- Edit model_and_solve_cr_shadow.sh's variable path and run it
+- Edit model_and_solve_cr_shadow.sh's variable path and run it (if
+  you're expect to run a CLAPS simulation)
 - Convert the sol file to its shadow format using
   convert_solution_to_shadow_format.py (Not yet available)
 - Convert Counter-Raptor weights to its shadow format using
   convert_solution_to_shadow_format.py (partially available ~ Resilience
-  not account for the last part of the Counter-Raptor paper, where
-  Resiliences are re-computed)
+  not account the last part of the Counter-Raptor paper, where
+  Resiliences are re-computed with some smoothing)
 - use the shadowtortools post tools to update the topology with the
-  cluster
+  cluster (see shadowtortools postprodclust --help)
 
