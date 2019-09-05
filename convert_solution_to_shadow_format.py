@@ -37,7 +37,6 @@ cr_parser.add_argument('--outpath')
 cr_parser.add_argument('--outname')
 
 claps_cr_parser = sub.add_parser("CLAPS_CR", help="Convert to CLAPS Counter-Raptort")
-claps_cr_parser.add_argument('--resilience', help="Contains the path to the penalty matrix")
 claps_cr_parser.add_argument('--relchoice', help="path to file containing choice of\
         relays for the simulation we expect to run")
 claps_cr_parser.add_argument('--cluster_repre', help="path to the file containing cluster representative")
@@ -46,7 +45,6 @@ claps_cr_parser.add_argument('--client_distribution', help="path to file contain
 claps_cr_parser.add_argument('--sol_file', help="path to the solver solution file of the CLAPS counter raptor")
 claps_cr_parser.add_argument('--outpath', help="")
 claps_cr_parser.add_argument('--outname', help="")
-claps_cr_parser.add_argument('--alpha', type=float, default=0.5)
 
 ##DeNASA
 denasa_parser = sub.add_parser("DeNASA", help="Convert to DeNASA weights")
@@ -120,11 +118,9 @@ def compute_cr_weights(args):
 def compute_claps_cr_weights(args):
     locationsinfo = {}
     relays = parse_relaychoice(args.relchoice)
-    with open(args.resilience) as f:
-        penalties = json.load(f)
     with open(args.client_distribution) as f:
         locations = json.load(f)
-    
+    max_guard_consensus_weight, guards = _get_max_guardconsweight(relays)
     solinfo = {}
     #parse information from the solution file
     with open(args.sol_file) as f:
@@ -137,7 +133,13 @@ def compute_claps_cr_weights(args):
 
     W = load_and_compute_W_from_clusterinfo(locations, args.cluster_file)
     #Re-compute L! TODO need cluster location distribution
-    
+    print("DEBUG: Should be one: {}".format(sum(W.values())))
+    L = {}
+    for relayname in guards:
+        L[relayname] = 0
+        for loc in W:
+            L[relayname] += W[loc]*solinfo[loc][relayname]
+        print("L[{}] is {}".format(relayname, L[relayname]))
 
     for location in solinfo
         locationsinfo[location] = {}
@@ -150,7 +152,7 @@ def compute_claps_cr_weights(args):
             locationsinfo[location][guard['Name']] = "{0} {1} {2} {3}".format(
                 guard['Name'],
                 thisguard_weight,
-                int(round(Wmg*guard['Consensus(KB/s)']/10000.0)),
+                int(round(guard['Consensus(KB/s)']-L[guard])),
                 -1)
     return locationsinfo
 if __name__ == "__main__":
