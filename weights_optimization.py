@@ -274,12 +274,15 @@ def model_opt_problem_for_shadow(W, repre, client_distribution,
     R = {}
     max_cons_weight = 0.0
     for name, relinfo in guards.items():
-        G += relinfo[6]
         if relinfo[6] > max_cons_weight:
             max_cons_weight = relinfo[6]
     print("Total guard consensus weight: {0}, max observed consenus weight: {1}".format(G, max_cons_weight))
 
     print("E:{}, D:{} and G:{}".format(E,D,G))
+    bwweight = BandwidthWeights()
+    casename, Wgg, Wgd, Wee, Wed, Wmg, Wme, Wmd = bwweight.recompute_bwweights(G, M, D, E, G+M+D+E)
+    Wgg = Wgg/10000.0
+    print("Wgg is {}".format(Wgg))
     SWgg = (E + D)/G #SWgg for Scarce Wgg
     print("New Wgg value from same strategy as Waterfillign Section 4.3 is: {}".format(SWgg))
 
@@ -287,12 +290,8 @@ def model_opt_problem_for_shadow(W, repre, client_distribution,
         pmatrix_unclustered = json.load(f)
     pmatrix = produce_clustered_pmatrix(pmatrix_unclustered, repre, client_distribution, guards)
     
-    bwweight = BandwidthWeights()
-    casename, Wgg, Wgd, Wee, Wed, Wmg, Wme, Wmd = bwweight.recompute_bwweights(G, M, D, E, G+M+D+E)
-    SWgg = (E + D)/G #SWgg for Scarce Wgg
     if not disable_SWgg:
         Wgg = SWgg
-    print("Wgg={}".format(Wgg))
     #model the problem
     location_aware = LpProblem("Location aware selection", LpMinimize)
     
@@ -581,6 +580,5 @@ if __name__ == "__main__":
         with open(args.load_problem, "rb") as f:
             location_aware = pickle.load(f)
             location_aware.solve(pulp.PULP_CPLEX_CMD(msg=1, path="/home/frochet/.cplex/cplex/bin/x86-64_linux/cplex"))
-            pdb.set_trace()
             for v in location_aware.variables():
                 print(v.name, "=", v.varValue)
