@@ -32,9 +32,9 @@ locations. In the following Procedures, we first cover what could potentially be
 an option to evaluate client density, and then we explain how to specify the
 Linear Programming problem.
 
-## Procedure
+## Client locations - Per AS
 
-  A) Offers an heuristic to evaluate client distribution per AS without
+    Offers an heuristic to evaluate client distribution per AS without
     relying on new measurements (we only use the data which Tor already
     provides - i.e., an estimation of Tor users per country). This heuristic
     is a fundamental block of the load-balancing system, like Torflow
@@ -58,7 +58,15 @@ Linear Programming problem.
   
     Estimated work for procedure A: more than 1 week full time.  
 
-  B) Apply the following minmax optimization problem to derive weights for each
+  
+## Weight calculation - Counter-Raptor like problem
+
+   Modeling to derive guard and middle weights with penalty matrix for
+   guard usage only.
+   Performance constraints for load-balancing consider that the exit
+   position total bandwdith is scarce
+
+   Apply the following minmax optimization problem to derive weights for each
      location  
 
    Let W_l the density of Clients per AS computed from A), such that
@@ -129,6 +137,12 @@ minimization of the expected path penalty (for whatever definition of penalty).
   Estimated work for procedure B: more than one week full time -
 Difficult bits: computing P, and modelizing the above problem such
 that it is efficiently solved.
+
+## Weight calculation - DeNASA-like problems
+
+TODO
+
+
 
 ## Install 
 
