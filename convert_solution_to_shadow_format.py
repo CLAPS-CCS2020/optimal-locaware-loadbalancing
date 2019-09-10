@@ -118,30 +118,30 @@ def compute_cr_weights(args):
 def compute_claps_cr_weights(args):
     locationsinfo = {}
     relays = parse_relaychoice(args.relchoice)
-    with open(args.client_distribution) as f:
-        locations = json.load(f)
     max_guard_consensus_weight, guards = _get_max_guardconsweight(relays)
     solinfo = {}
     #parse information from the solution file
     with open(args.sol_file) as f:
+        f.readline() #skip header
         for line in f:
-            loc, relayname = line.split(" ")[0].split("_")
+            loc, relayname = line.split()[1].split("_")
             if loc not in solinfo:
                 solinfo[loc] = {}
-            weight = int(line.split(" ")[1])
+            weight = int(round(float(line.split()[2])))
             solinfo[loc][relayname] = weight
 
-    W = load_and_compute_W_from_clusterinfo(locations, args.cluster_file)
+    W, repre = load_and_compute_W_from_clusterinfo(args.client_distribution, args.cluster_repre)
     #Re-compute L! TODO need cluster location distribution
     print("DEBUG: Should be one: {}".format(sum(W.values())))
     L = {}
     for relayname in guards:
         L[relayname] = 0
         for loc in W:
-            L[relayname] += W[loc]*solinfo[loc][relayname]
+            if relayname in solinfo[loc]: #is not inside if the value is 0
+                L[relayname] += W[loc]*solinfo[loc][relayname]
         print("L[{}] is {}".format(relayname, L[relayname]))
 
-    for location in solinfo
+    for location in solinfo:
         locationsinfo[location] = {}
         for guard in guards.values():
             if guard['Name'] in solinfo[location]:
@@ -152,7 +152,7 @@ def compute_claps_cr_weights(args):
             locationsinfo[location][guard['Name']] = "{0} {1} {2} {3}".format(
                 guard['Name'],
                 thisguard_weight,
-                int(round(guard['Consensus(KB/s)']-L[guard])),
+                int(round(guard['Consensus(KB/s)']-L[guard['Name']])),
                 -1)
     return locationsinfo
 if __name__ == "__main__":
