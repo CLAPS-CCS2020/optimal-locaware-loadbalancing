@@ -30,14 +30,6 @@ def parse_sol_file(filename):
                 weights[representative][fingerprint] = float(tab[2])
             line = f.readline()
     return weights
-        
-    with open(args.pmatrix) as f:
-        pmatrix = json.load(f)
-    with open(args.asn_to_users) as f:
-        asn_to_users = json.load(f)
-
-    cluster_info = parse_client_cluster(args.clusterdescr)
-    
 
 def parse_client_cluster(filename):
     representative = {}
@@ -125,3 +117,16 @@ def timestamp(t):
     td = t - datetime.datetime(1970, 1, 1, tzinfo=pytz.UTC)
     ts = td.days*24*60*60 + td.seconds
     return ts
+
+def counter_raptor_tille_sampling(pmatrix, guards, g):
+    """
+    Following Alg described in  Counter-Raptor S&P paper p.8
+    """
+    new_pmatrix = {}
+    k = len(guards)*g
+    for loc in pmatrix:
+        S = guards[:]
+        for guard in S:
+            pass #TODO
+            
+    

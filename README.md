@@ -140,7 +140,26 @@ that it is efficiently solved.
 
 ## Weight calculation - DeNASA-like problems
 
-TODO
+  Modelling to derive weights for guard, middle and exit relays. We use
+a penalty matrix for We also
+  consider that the total exit bandwidth is scarce.
+
+   Let W_l the density of Clients per AS computed from A), such that
+   \sum W_l = 1  
+   Let R_l a discrete distribution of scores to compute for guard selection
+   common to all clients in location l.  
+   Let G the total consensus weight of the guard-flagged relays  
+   Let E and D the total consensus weight of exit-flagged and
+   exit+guard-flagged relays respectively
+   Let Wgg the fraction of bandwidth of each guard-flagged relay
+   dedicated to the entry position, computed as described in
+   dir-spec.txt Section 3.8.4.  
+   Let L = \sum W_l\*R_l, a mixed distribution accounting for client density  
+   Let P a matrix called Penalty Matrix, for all locations and for all guards.
+   P\_{i,j} gives a penalty score associated with the path between location i
+   and guard j (higher is worse).  
+   Let V_i the expected penalty under vanilla Tor for location i computed as:
+   V_i = \sum{G_j} (Pr_i * P_{i,j}
 
 
 

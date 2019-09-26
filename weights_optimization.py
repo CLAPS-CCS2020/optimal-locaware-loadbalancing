@@ -24,28 +24,54 @@ location which should satify the constraints of our problem (see README.md, proc
 
 """
 
-parser = argparse.ArgumentParser(description="")
+parser = argparse.ArgumentParser(description="Model a LP problem and output a "
+                                 ".mps representation of it")
+common_parser = argparse.ArgumentParser()
 
-parser.add_argument("--tor_users_to_location", help="path to the pickle file containing the distribution of Tor users per country")
-parser.add_argument("--pickle", action="store_true", default=False)
-parser.add_argument("--json", action="store_true", default=False)
-parser.add_argument("--disable_SWgg", action="store_true", default=False)
-parser.add_argument("--in_shadow", action="store_true", default=False)
-parser.add_argument("--cust_locations", help="path to the file containing the distribution of IPs per customer AS")
-parser.add_argument("--obj_function", type=int, help="Choice of objective function")
-parser.add_argument("--cluster_file", type=str, help="Pickle file of clustered guards")
-parser.add_argument("--client_clust_representative", type=str, help="Ryan's clusterization file for ASes in one AS representative")
-parser.add_argument("--pmatrix", type=str, help="Penalty matrix")
-parser.add_argument("--penalty_vanilla", type=str, help="Vanilla penalty vector for each location")
-parser.add_argument("--reduced_as_to", type=int, help="for test purpose, gives the number of ASes to keep")
-parser.add_argument("--reduced_guards_to", type=int, help="for test purpose, gives the number of guards to keep")
-parser.add_argument("--load_problem", help="filepth with problem to solve if already computed")
-parser.add_argument("--out_dir", help="out dir to save the .lp file")
-parser.add_argument("--binary_search_theta", action='store_true', default=False)
-parser.add_argument("--theta", type=float, help="set theta value for gpa", default=2.0)
-## Note: simple at first. Later we may try to solve the problem for following network states and initialize variables of the n+1 state with
-## the solution computed for state n
-parser.add_argument("--network_state", help="filepath to the network state containing Tor network's data (shadow_relay_dump in case of shadow simulation")
+sub = parser.add_subparsers(help="Mod type", dest="sub")
+
+cr_parser = sub.add_parser("CR", parents=[common_parser], help="For Counter-Raptor security analysis")
+cr_shadow_parser = sub.add_parser("CR_SHADOW", parents=[common_parser], help="For Counter-Raptor shadow "
+                                  "simulation")
+denasa_parser = sub.add_parser("DeNASA", parents=[common_parser], help="For DeNASA security analysis")
+denasa_exit_parser = sub.add_parser("DeNASA_EXIT", parent=[common_parser,
+                                                           denasa_parser],
+                                    help="For DeNASA g&e security analysis")
+denasa_parser = sub.add_parser("DeNASA_SHADOW", parents=[common_parser], help="For DeNASA shadow
+                               "simulations")
+
+common_parser.add_argument("--tor_users_to_location", help="path to the pickle file containing the distribution of Tor users per country")
+# parser.add_argument("--pickle", action="store_true", default=False)
+# parser.add_argument("--json", action="store_true", default=False)
+common_parser.add_argument("--disable_SWgg", action="store_true", default=False)
+# parser.add_argument("--in_shadow", action="store_true", default=False)
+# parser.add_argument("--cust_locations", help="path to the file containing the distribution of IPs per customer AS")
+common_parser.add_argument("--obj_function", type=int, help="Choice of objective function")
+common_parser.add_argument("--client_clust_representative", type=str, help="Ryan's clusterization file for ASes in one AS representative")
+common_parser.add_argument("--pmatrix", type=str, help="Penalty matrix")
+comon_parser.add_argument("--penalty_vanilla", type=str, help="Vanilla penalty vector for each location")
+# parser.add_argument("--load_problem", help="filepth with problem to solve if already computed")
+common_parser.add_argument("--out_dir", help="out dir to save the .lp file")
+# parser.add_argument("--binary_search_theta", action='store_true', default=False)
+common_parser.parser.add_argument("--theta", type=float, help="set theta value for gpa", default=5.0)
+
+## For Counter Raptor security analysis
+cr_parser.add_argument("--network_state", help="filepath to the network state containing Tor network's data (shadow_relay_dump in case of shadow simulation")
+cr_parser.add_argument("--cluster_file", type=str, help="Pickle file of clustered guards")
+cr_parser.add_argument("--reduced_as_to", type=int, help="for test purpose, gives the number of ASes to keep")
+cr_parser.add_argument("--reduced_guards_to", type=int, help="for test purpose, gives the number of guards to keep")
+
+## For Counter Raptor Shadow simulations
+cr_shadow_parser.add_argument("--shadow_relay_dump", help="Path to a .json file"
+                              " containing information about the network")
+
+## For DeNASA security analysis
+denasa_parser.add_argument("--network_state", help="filepath to the network state containing Tor network's data (shadow_relay_dump in case of shadow simulation")
+denasa_parser.add_argument("--cluster_file", type=str, help="Pickle file of clustered guards")
+## For DeNASA g&e security analysis
+denasa_exit_parser.add_argument("--deNasa_sol_guards", help="filepath to the solver"
+                                " output file for denasa guard weight LP
+                                " problem")
 
 ELASTICITY = 0.001
 
@@ -73,11 +99,6 @@ class Relay():
         self.download = 0 # in KiB
 
         self.rates = [] # list of bytes/s histories
-
-
-def load_and_compute_W_from_shadowcityinfo(tor_users_to_location, cityinfo):
-    pass
-
 
 def load_and_compute_W_from_clusterinfo(asn_to_users_file, clusterinfo):
     """
@@ -359,6 +380,63 @@ def model_opt_problem_for_shadow(W, repre, client_distribution,
     location_aware.writeMPS(outpath+".mps")
     #location_aware.solve()
 
+def model_opt_problem_for_denasa_exit(W, repre, L, penalty_vanilla, ns_file,
+                                      obj_function, cluster_file=None,
+                                      out_dir=None, pmatrix_file=None,
+                                      theta=5.0, reduced_as_to=None,
+                                      reduced_guards_to=None,
+                                      disable_SWgg=False):
+    
+    #LP variables
+    
+    # Affine expression LE = \sum WGE_i*R_i ; will be used in the constraint to
+    # ensure load balancing of exit relays.
+    # TO BE DECIDED: Per client Cluster Exit distribution or Per client
+    # Cluster-guard, exit pairs distribution? The later would offer much better
+    # network level end-to-end security but would theoritically allows guard discovery attacks, which
+    # kinda sucks. One option would be to cluster guard relays in the same logic
+    # we initially clustered clients
+    
+    # Let's assume WGE_i = W for now (i.e., 1 Exit distribution per Client
+    # Cluster)
+    
+    location_aware = LpProblem("Optimal location-aware path selection for exit deNasa weights", LpMinimize)
+
+    R = {}
+    for loc in W:
+        R[loc] = LpVariable.dicts(loc, exitids, lowBound = 0,
+                upBound=E)
+    LE = {}
+    for exitid in exitids:
+        LE[exitid] = LpAffineExpression([(R[loc][exitid], W[loc]) for loc in W],
+                                        name="LE({})".format(exitid))
+    
+    objective = LpVariable("L_upper_bound", lowBound = 0)
+    print("Computing the lpSum of LpAffineExpressions as an objective function... (this can take time)")
+    location_aware += lpSum([LpAffineExpression([(R[loc][exitid], W[loc]*pmatrix[loc][exitid]) for loc in W]) for exitid in exitids]), "Z"
+
+    ## Computing constraints
+    print("Computing constraints \sum R_l(i) == E+D (under the assumption E+D is scarce, this is the right way to load balance)")
+    for loc in W:
+        #location_aware.extend(prob_extension)
+        sum_R = lpSum([R[loc][exitid] for exitid in exitids])
+        location_aware += sum_R == E+D, "\sum R(i) == E+D for loc {}".format(loc)
+
+    print("Computing constraints LE(i) <= BW_i")
+    #TODO
+
+    print("GPA constraint, using theta = {} and relCost(i) = BW_i/sum_j(BW_j)".format(theta))
+    for loc in W:
+        for exitid in exitids:
+            #location_aware += R[loc][exitid] <= theta*exitids[gclusterid].tot_consweight*Wgga
+            pass#TODO
+    print("Done.")
+    print("Adding 'no worse than vanilla constraint'")
+    #TODO
+    # for loc in W:
+        # for ori_loc in repre[loc]:
+            # location_aware += LpAffineExpression([(R[loc][gclusterid], pmatrix_unclustered[ori_loc][gclusterid]) for gclusterid in gclustersids]) <= penalty_vanilla[ori_loc] * G
+
 def model_opt_problem(W, repre, asn_to_users_file, penalty_vanilla, ns_file, obj_function, cluster_file=None, out_dir=None, pmatrix_file=None,
         theta=2.0, reduced_as_to=None, reduced_guards_to=None, disable_SWgg=False):
     
@@ -527,58 +605,83 @@ def model_opt_problem(W, repre, asn_to_users_file, penalty_vanilla, ns_file, obj
 if __name__ == "__main__":
     args = parser.parse_args()
     ## Compute appropritate values and model the optimization problem
-    if args.tor_users_to_location:
-        if args.pickle and args.cust_locations:
-            W = load_and_compute_W(args.tor_users_to_location, args.cust_locations, args.reduced_as_to)
-        elif args.json and args.client_clust_representative:
-            W, repre = load_and_compute_W_from_clusterinfo(args.tor_users_to_location, args.client_clust_representative)
-        elif args.json:
-            W = load_and_compute_W_from_citymap(args.tor_users_to_location)
-        elif args.in_shadow:
-            ## this W is computed for shadow simulations, not real world.
-            W = load_and_compute_W_from_shadowcityinfo(args.tor_users_to_location, args.cityinfo)
-        if args.binary_search_theta:
-            cur_theta = 1.25
-            up_theta = 2
-            down_theta = 0.5
-            last_positive = 2
-            for _ in range(0, 10):
-                model_opt_problem(W, repre, args.penalty_vanilla, args.network_state, args.obj_function, theta = cur_theta,
-                    cluster_file=args.cluster_file, out_dir=args.out_dir, pmatrix_file=args.pmatrix,
-                    reduced_as_to=args.reduced_as_to, reduced_guards_to=args.reduced_guards_to,
-                    disable_SWgg=args.disable_SWgg)
-                    
-                process = Popen(["./check_model", os.path.join(args.out_dir, "location_aware_with_obj_{}.mps".format(args.obj_function))], stdout=PIPE)
-                output, err = process.communicate()
-                exit_code = process.wait()
-                if exit_code == 0:
-                    up_theta = cur_theta
-                    last_postive = cur_theta
-                elif exit_code == 1:
-                    down_theta = cur_theta
-                else:
-                    print("check_model returned something else than -1, 0: {}".format(exit_code))
-                cur_theta = (up_theta+down_theta)/2
-                print("Next theta tested value: {}".format(cur_theta))
 
-        elif args.in_shadow:
-            model_opt_problem_for_shadow(W, repre, args.tor_users_to_location,
-                                         args.penalty_vanilla,
-                                         args.network_state, args.obj_function,
-                                         theta=args.theta,
-                                         pmatrix_file=args.pmatrix,
-                                         out_dir=args.out_dir,
-                                         disable_SWgg=args.disable_SWgg)
+    if args.sub == "CR":
+        W, repre = load_and_compute_W_from_clusterinfo(args.tor_users_to_location, args.client_clust_representative)
+        model_opt_problem(W, repre, args.tor_users_to_location, args.penalty_vanilla, args.network_state, args.obj_function, theta=args.theta,
+            cluster_file=args.cluster_file, out_dir=args.out_dir, pmatrix_file=args.pmatrix,
+            reduced_as_to=args.reduced_as_to, reduced_guards_to=args.reduced_guards_to,
+            disable_SWgg=args.disable_SWgg)
+    elif args.sub == "CR_SHADOW":
+        W, repre = load_and_compute_W_from_clusterinfo(args.tor_users_to_location, args.client_clust_representative)
+        model_opt_problem_for_shadow(W, repre, args.tor_users_to_location,
+                                     args.penalty_vanilla,
+                                     args.shadow_relay_dump, args.obj_function,
+                                     theta=args.theta,
+                                     pmatrix_file=args.pmatrix,
+                                     out_dir=args.out_dir,
+                                     disable_SWgg=args.disable_SWgg)
+        
+    elif args.sub == "DeNASA":
+        W, repre = load_and_compute_W_from_clusterinfo(args.tor_users_to_location, args.client_clust_representative)
+        model_opt_problem(W, repre, args.tor_users_to_location, args.penalty_vanilla, args.network_state, args.obj_function, theta=args.theta,
+            cluster_file=args.cluster_file, out_dir=args.out_dir, pmatrix_file=args.pmatrix,
+            disable_SWgg=args.disable_SWgg)
+    elif args.sub == "DeNASA_EXIT":
+        ##
+        print("Computing Client density need to recompute L from all CLAPS DeNASA guard weighs ...")
+        W, repre =\
+        load_and_compute_W_from_clusterinfo(args.tor_users_to_location,
+                                            args.client_clust_representative)
+        print("Computing L ...")
+        L = load_and_compute_from_solfile(W, args.deNasa_sol_guards)
+        model_opt_problem_for_denasa_exit(W, repre, L, args.penalty_vanilla,
+                                          args.network_state, args.obj_function,
+                                          theta=args.theta,
+                                          cluster_file=args.cluster_file,
+                                          out_dir=args.out_dir,
+                                          pmatrix_file=args.pmatrix,
+                                          disable_SWgg=args.disable_SWgg)
+    elif args.sub == "DeNASA_SHADOW":
+        ## We have two cases to handle: only g weight calculation, and g&e
+        # weight calculation
+        pass
+    elif args.sub == "DeNASA_SHADOW_EXIT:
+        pass
+    else:
+        sys.exit(-1)
+
+
+    ## TODO Cleanup later
+
+    # if args.tor_users_to_location:
+        # if args.pickle and args.cust_locations:
+            # W = load_and_compute_W(args.tor_users_to_location, args.cust_locations, args.reduced_as_to)
+        # elif args.json and args.client_clust_representative:
+            # W, repre = load_and_compute_W_from_clusterinfo(args.tor_users_to_location, args.client_clust_representative)
+        # elif args.json:
+            # W = load_and_compute_W_from_citymap(args.tor_users_to_location)
+        # elif args.in_shadow:
+            # ## this W is computed for shadow simulations, not real world.
+            # W = load_and_compute_W_from_shadowcityinfo(args.tor_users_to_location, args.cityinfo)
+        # if args.in_shadow:
+            # model_opt_problem_for_shadow(W, repre, args.tor_users_to_location,
+                                         # args.penalty_vanilla,
+                                         # args.network_state, args.obj_function,
+                                         # theta=args.theta,
+                                         # pmatrix_file=args.pmatrix,
+                                         # out_dir=args.out_dir,
+                                         # disable_SWgg=args.disable_SWgg)
                     
-        else:
-            model_opt_problem(W, repre, args.tor_users_to_location, args.penalty_vanilla, args.network_state, args.obj_function, theta=args.theta,
-                cluster_file=args.cluster_file, out_dir=args.out_dir, pmatrix_file=args.pmatrix,
-                reduced_as_to=args.reduced_as_to, reduced_guards_to=args.reduced_guards_to,
-                disable_SWgg=args.disable_SWgg)
-    ## Load the problem and solve() it
-    elif args.load_problem:
-        with open(args.load_problem, "rb") as f:
-            location_aware = pickle.load(f)
-            location_aware.solve(pulp.PULP_CPLEX_CMD(msg=1, path="/home/frochet/.cplex/cplex/bin/x86-64_linux/cplex"))
-            for v in location_aware.variables():
+        # else:
+            # model_opt_problem(W, repre, args.tor_users_to_location, args.penalty_vanilla, args.network_state, args.obj_function, theta=args.theta,
+                # cluster_file=args.cluster_file, out_dir=args.out_dir, pmatrix_file=args.pmatrix,
+                # reduced_as_to=args.reduced_as_to, reduced_guards_to=args.reduced_guards_to,
+                # disable_SWgg=args.disable_SWgg)
+    # ## Load the problem and solve() it
+    # elif args.load_problem:
+        # with open(args.load_problem, "rb") as f:
+            # location_aware = pickle.load(f)
+            # location_aware.solve(pulp.PULP_CPLEX_CMD(msg=1, path="/home/frochet/.cplex/cplex/bin/x86-64_linux/cplex"))
+            # for v in location_aware.variables():
                 print(v.name, "=", v.varValue)
