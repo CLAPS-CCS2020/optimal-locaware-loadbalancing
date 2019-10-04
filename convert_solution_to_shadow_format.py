@@ -17,17 +17,17 @@ from util import parse_client_cluster, produce_clustered_pmatrix, tille_pr
 from bandwidth_weights import *
 from weights_optimization import load_and_compute_W_from_clusterinfo
 
-parser = argparse.ArgumentParser(description="Produce a file containing weights\
+parser_c = argparse.ArgumentParser(description="Produce a file containing weights\
         which can be loaded by clients within our shadow simulations")
 
-sub = parser.add_subparsers(help="Conversion type", dest="sub")
+sub = parser_c.add_subparsers(help="Conversion type", dest="sub")
 
 ##Counter-Raptor
 cr_parser = sub.add_parser("CR", help="Convert to Counter-Raptor wooh!")
 cr_parser.add_argument('--relchoice', help="path to file containing choice of\
         relays for the simulation we expect to run")
-cr_parser.add_argument('--resilience', help="Contains CR's resilience\
-        information for each of Shadow's location. This resilience file is\
+cr_parser.add_argument('--penalties', help="Contains CR's shadow penalties\
+        information for each of Shadow's location. This penalties file is\
         bounded to relchoice, since it must be computed for this shadow topology")
 
 cr_parser.add_argument('--client_distribution', help="path to file containing\
@@ -93,8 +93,8 @@ def compute_cr_weights(args):
     
     locationsinfo = {}
     relays = parse_relaychoice(args.relchoice)
-    with open(args.resilience) as f:
-        resilience = json.load(f)
+    with open(args.penalties) as f:
+        penalties = json.load(f)
     with open(args.client_distribution) as f:
         locations = json.load(f)
     ## compute the max guard consenus weights, as done in the
@@ -102,22 +102,30 @@ def compute_cr_weights(args):
     max_guard_consensus_weight, guards = _get_max_guardconsweight(relays)
     print("Max guard value is {}".format(max_guard_consensus_weight))
     print("Number of guards: {}".format(len(guards)))
-    ## pick random resilience to compute weights
+    
+    # Compute blending first, then tillé, then we put the weithts in the right format
+    weights = {}
+    for location in locations:
+        weights[location] = {}
+        for guard in guards.values():
+            thisguard_res = (1-penalties[location][guard['Name']])*max_guard_consensus_weight
+            weights[location][guard['Name']] = int(round(args.alpha*thisguard_res + (guard['ConsensusWeight'])*(1-args.alpha)))
+        min_weight = min(weights[location].values())
+        tsize = int(round(len(guards)*0.1))
+        tille_probs = tille_pr(weights[location].keys(), weights[location], tsize)
+        min_prob = min(tille_probs.values())
+        
+        for guard in guards.values():
+            weights[location][guard['Name']] = int(round(tille_probs[guard['Name']]/min_prob * min_weight))
+
     for location in locations:
         locationsinfo[location] = {}
         for guard in guards.values():
-            thisguard_res = (1-resilience[location][guard['Name']])*max_guard_consensus_weight
             locationsinfo[location][guard['Name']] = "{0} {1} {2} {3}".format(
                     guard['Name'],
-                    int(round(args.alpha*thisguard_res +
-                    (guard['ConsensusWeight'])*(1-args.alpha))),
+                    weights[location][guard['Name']],
                     -1,
                     -1)
-        ##compute Tillé
-        tsize = int(round(len(guards)*0.1))
-        tille_weights = tille_pr(locationsinfo[locations].keys(),
-                                 locationsinfo[location].values(), tsize)
-        locationsinfo[location] = tille_weights
     return locationsinfo
 
 def compute_claps_cr_weights(args):
@@ -161,7 +169,7 @@ def compute_claps_cr_weights(args):
                 -1)
     return locationsinfo
 if __name__ == "__main__":
-    args = parser.parse_args()
+    args = parser_c.parse_args()
     
     if args.sub == "CR":
         locationsinfo = compute_cr_weights(args)

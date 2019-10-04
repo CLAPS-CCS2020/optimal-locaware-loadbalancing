@@ -26,18 +26,18 @@ location which should satify the constraints of our problem (see README.md, proc
 
 parser = argparse.ArgumentParser(description="Model a LP problem and output a "
                                  ".mps representation of it")
-common_parser = argparse.ArgumentParser()
+common_parser = argparse.ArgumentParser(add_help=False)
 
-sub = parser.add_subparsers(help="Mod type", dest="sub")
+sub = parser.add_subparsers(dest="sub")
 
 cr_parser = sub.add_parser("CR", parents=[common_parser], help="For Counter-Raptor security analysis")
 cr_shadow_parser = sub.add_parser("CR_SHADOW", parents=[common_parser], help="For Counter-Raptor shadow "
                                   "simulation")
-denasa_parser = sub.add_parser("DeNASA", parents=[common_parser], help="For DeNASA security analysis")
-denasa_exit_parser = sub.add_parser("DeNASA_EXIT", parent=[common_parser,
+denasa_parser = sub.add_parser("DeNASA", parents=[common_parser], add_help=False) #help="For DeNASA security analysis")
+denasa_exit_parser = sub.add_parser("DeNASA_EXIT", parents=[common_parser,
                                                            denasa_parser],
                                     help="For DeNASA g&e security analysis")
-denasa_parser = sub.add_parser("DeNASA_SHADOW", parents=[common_parser], help="For DeNASA shadow
+denasa_parser = sub.add_parser("DeNASA_SHADOW", parents=[common_parser], help="For DeNASA shadow "
                                "simulations")
 
 common_parser.add_argument("--tor_users_to_location", help="path to the pickle file containing the distribution of Tor users per country")
@@ -49,11 +49,11 @@ common_parser.add_argument("--disable_SWgg", action="store_true", default=False)
 common_parser.add_argument("--obj_function", type=int, help="Choice of objective function")
 common_parser.add_argument("--client_clust_representative", type=str, help="Ryan's clusterization file for ASes in one AS representative")
 common_parser.add_argument("--pmatrix", type=str, help="Penalty matrix")
-comon_parser.add_argument("--penalty_vanilla", type=str, help="Vanilla penalty vector for each location")
+common_parser.add_argument("--penalty_vanilla", type=str, help="Vanilla penalty vector for each location")
 # parser.add_argument("--load_problem", help="filepth with problem to solve if already computed")
 common_parser.add_argument("--out_dir", help="out dir to save the .lp file")
 # parser.add_argument("--binary_search_theta", action='store_true', default=False)
-common_parser.parser.add_argument("--theta", type=float, help="set theta value for gpa", default=5.0)
+common_parser.add_argument("--theta", type=float, help="set theta value for gpa", default=5.0)
 
 ## For Counter Raptor security analysis
 cr_parser.add_argument("--network_state", help="filepath to the network state containing Tor network's data (shadow_relay_dump in case of shadow simulation")
@@ -70,7 +70,7 @@ denasa_parser.add_argument("--network_state", help="filepath to the network stat
 denasa_parser.add_argument("--cluster_file", type=str, help="Pickle file of clustered guards")
 ## For DeNASA g&e security analysis
 denasa_exit_parser.add_argument("--deNasa_sol_guards", help="filepath to the solver"
-                                " output file for denasa guard weight LP
+                                " output file for denasa guard weight LP"
                                 " problem")
 denasa_exit_parser.add_argument("--fp_to_asn", help="filepath to a json dict "
                                 "that contains a map from fingerprints to asn")
@@ -700,7 +700,7 @@ if __name__ == "__main__":
         ## We have two cases to handle: only g weight calculation, and g&e
         # weight calculation
         pass
-    elif args.sub == "DeNASA_SHADOW_EXIT:
+    elif args.sub == "DeNASA_SHADOW_EXIT":
         pass
     else:
         sys.exit(-1)
