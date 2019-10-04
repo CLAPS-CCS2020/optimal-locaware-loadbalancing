@@ -92,6 +92,15 @@ def plot_cdf(vals, label, color=None):
         plt.plot(list(map(itemgetter(0), vals)), ys,
                 label=label, antialiased=True)
 
+def produce_clustered_pmatrix_for_denasa(pmatrix, repre, asn_to_users, exits):
+    """
+    TODO
+    """
+    pmatrix_clustered = {}
+    for representative, ases in repre.items():
+        pass
+
+
 def produce_clustered_pmatrix(pmatrix, repre, asn_to_users, guards):
     """
     Computer a pmatrix cluster -> guard -> pvalue as the weighted sum
@@ -130,3 +139,58 @@ def counter_raptor_tille_sampling(pmatrix, guards, g):
             pass #TODO
             
     
+def handle_edge_case(keys, weights, m):
+
+    n = len(keys)
+    j = len(list(filter(lambda w: w > 0, [weights[ky] for ky in keys])))
+
+    wprime = dict.fromkeys(keys, 0.0)
+
+    if j < m:
+        for ky in keys:
+            if weights[ky] > 0:
+                wprime[ky] = (1/m)
+            else:
+                wprime[ky] = (1 / m) * ((m - j) / (n - j))
+        return True, wprime
+    else:
+        return False, wprime
+
+def tille_pr(keys, weights, m):
+
+    is_edge_case, wprime = handle_edge_case(keys, weights, m)
+    if is_edge_case:
+        return wprime
+
+    k = m
+
+    s = set(keys)
+    denom = sum(weights.values())
+
+    def helper():
+        wsum = sum([weights[x_i] for x_i in s])
+
+        for x_i in s:
+            wprime[x_i] = (weights[x_i] * k / wsum)
+
+    updated = True
+    while updated:
+        helper()
+
+        updated = False
+
+        remove = []
+        for x_i in s:
+            if wprime[x_i] > 1:
+                wprime[x_i] = 1
+                remove.append(x_i)
+                updated = True
+                k = (k - 1)
+        for x in remove:
+            s.remove(x)
+
+    sum_wprime = sum(wprime.values())
+    for x in keys:
+        wprime[x] = wprime[x] / sum_wprime
+
+    return wprime 

@@ -72,6 +72,8 @@ denasa_parser.add_argument("--cluster_file", type=str, help="Pickle file of clus
 denasa_exit_parser.add_argument("--deNasa_sol_guards", help="filepath to the solver"
                                 " output file for denasa guard weight LP
                                 " problem")
+denasa_exit_parser.add_argument("--fp_to_asn", help="filepath to a json dict "
+                                "that contains a map from fingerprints to asn")
 
 ELASTICITY = 0.001
 
@@ -175,6 +177,21 @@ def load_and_compute_W(tor_users_to_location_file, cust_locations_file, reduced_
     for loc, value in tor_users_per_as.items():
         W[loc] = value/tot
     return W
+
+def load_and_compute_from_solfile(W, guards, pathsolfile):
+    """
+        L(i) = \sum W_j*R_ij for each guard i
+    """
+    parsed_weights = parse_sol_file(pathsolfile)
+    assert len(parsed_weights) == len(W), "We do not have the same AS set size "
+    "between ASes parsed from the DeNASA guard sol file and W?"
+    L = {}
+    for  guard in guards:
+        L[guard] = 0
+        for loc in W:
+            if guard in parsed_weights[loc]:
+                L[guard] += W[loc]*parsed_weights[loc][guard]
+    return L
 
 def build_fake_pmatrix_profile(guards, W):
     """
@@ -381,12 +398,17 @@ def model_opt_problem_for_shadow(W, repre, client_distribution,
     #location_aware.solve()
 
 def model_opt_problem_for_denasa_exit(W, repre, L, penalty_vanilla, ns_file,
+                                      fp_to_asn_file,
                                       obj_function, cluster_file=None,
                                       out_dir=None, pmatrix_file=None,
                                       theta=5.0, reduced_as_to=None,
                                       reduced_guards_to=None,
                                       disable_SWgg=False):
     
+    network_sate = get_network_state(ns_file)
+    
+    E, D = compute_tot_pos_bandwidths(network_state)
+
     #LP variables
     
     # Affine expression LE = \sum WGE_i*R_i ; will be used in the constraint to
@@ -406,6 +428,23 @@ def model_opt_problem_for_denasa_exit(W, repre, L, penalty_vanilla, ns_file,
     for loc in W:
         R[loc] = LpVariable.dicts(loc, exitids, lowBound = 0,
                 upBound=E)
+    ##L_norm will be used for re-computing the penalty matrix
+    tot = sum(L.values())
+    for guard in L:
+        L_norm[guard] = L[guard]/tot
+    
+
+    if not pmatrix_file:
+        pmatrix = build_fake_pmatrix_profile(exitids, W)
+    else:
+        print("Loading Penalty matrix")
+        with open(pmatrix_file, 'r') as f:
+            pmatrix_unclustered = json.load(f)
+        pmatrix = produce_clustered_pmatrix_for_denasa(pmatrix_unclustered, repre, asn_to_users, gclusters)
+    
+    # pmatrix should now be the form of "Client cluster AS, Guard AS", exit AS => penalty
+    # We now want Client Cluster AS, exit AS => penalty by summing over all
+    # guard AS with the p
     LE = {}
     for exitid in exitids:
         LE[exitid] = LpAffineExpression([(R[loc][exitid], W[loc]) for loc in W],
@@ -413,7 +452,8 @@ def model_opt_problem_for_denasa_exit(W, repre, L, penalty_vanilla, ns_file,
     
     objective = LpVariable("L_upper_bound", lowBound = 0)
     print("Computing the lpSum of LpAffineExpressions as an objective function... (this can take time)")
-    location_aware += lpSum([LpAffineExpression([(R[loc][exitid], W[loc]*pmatrix[loc][exitid]) for loc in W]) for exitid in exitids]), "Z"
+    location_aware += lpSum([LpAffineExpression([(R[loc][exitid],
+                                                  W[loc]*pmatrix[loc][fp_to_asn[exitid]]) for loc in W]) for exitid in exitids]), "Z"
 
     ## Computing constraints
     print("Computing constraints \sum R_l(i) == E+D (under the assumption E+D is scarce, this is the right way to load balance)")
@@ -423,19 +463,19 @@ def model_opt_problem_for_denasa_exit(W, repre, L, penalty_vanilla, ns_file,
         location_aware += sum_R == E+D, "\sum R(i) == E+D for loc {}".format(loc)
 
     print("Computing constraints LE(i) <= BW_i")
-    #TODO
 
     print("GPA constraint, using theta = {} and relCost(i) = BW_i/sum_j(BW_j)".format(theta))
     for loc in W:
         for exitid in exitids:
-            #location_aware += R[loc][exitid] <= theta*exitids[gclusterid].tot_consweight*Wgga
-            pass#TODO
+            # Assuming exit relays are used at 100% in exit position
+            location_aware += R[loc][exitid] <= theta*exitids[exitid].consweight
     print("Done.")
     print("Adding 'no worse than vanilla constraint'")
-    #TODO
-    # for loc in W:
-        # for ori_loc in repre[loc]:
-            # location_aware += LpAffineExpression([(R[loc][gclusterid], pmatrix_unclustered[ori_loc][gclusterid]) for gclusterid in gclustersids]) <= penalty_vanilla[ori_loc] * G
+    for loc in W:
+        for ori_loc in repre[loc]:
+            location_aware += LpAffineExpression([(R[loc][exitid], pmatrix_unclustered[ori_loc][exitid]) for exitid in exitids]) <= penalty_vanilla[ori_loc] * (E+D)
+    
+    write_to_mps_file(location_aware, out_dir, obj_function, theta)
 
 def model_opt_problem(W, repre, asn_to_users_file, penalty_vanilla, ns_file, obj_function, cluster_file=None, out_dir=None, pmatrix_file=None,
         theta=2.0, reduced_as_to=None, reduced_guards_to=None, disable_SWgg=False):
@@ -467,17 +507,7 @@ def model_opt_problem(W, repre, asn_to_users_file, penalty_vanilla, ns_file, obj
             max_cons_weight = gclusters[prefix].tot_consweight
     print("Total guard consensus weight: {0}, max observed consenus weight: {1}".format(G, max_cons_weight))
     # Computing E and D for the new Wgg (see Section 4.3 of Waterfilling paper).
-    E = 0
-    D = 0
-    for relay in network_state.cons_rel_stats:
-        rel_stat = network_state.cons_rel_stats[relay]
-        if Flag.RUNNING not in rel_stat.flags or Flag.BADEXIT in rel_stat.flags\
-          or Flag.VALID not in rel_stat.flags:
-            continue
-        if Flag.EXIT in rel_stat.flags and Flag.GUARD in rel_stat.flags:
-            D += rel_stat.consweight
-        elif Flag.EXIT in rel_stat.flags:
-            E += rel_stat.consweight
+    E, D = compute_tot_pos_bandwidths(network_state)
     print("E:{}, D:{} and G:{}".format(E,D,G))
     SWgg = (E + D)/G #SWgg for Scarce Wgg
     print("New Wgg value from same strategy as Waterfillign Section 4.3 is: {}".format(SWgg))
@@ -581,6 +611,23 @@ def model_opt_problem(W, repre, asn_to_users_file, penalty_vanilla, ns_file, obj
         for ori_loc in repre[loc]:
             location_aware += LpAffineExpression([(R[loc][gclusterid], pmatrix_unclustered[ori_loc][gclusterid]) for gclusterid in gclustersids]) <= penalty_vanilla[ori_loc] * G
 
+    write_to_mps_file(location_aware, out_dir, obj_function, theta)
+
+def compute_tot_pos_bandwidths(network_state):
+    E, D = 0, 0
+    for relay in network_state.cons_rel_stats:
+        rel_stat = network_state.cons_rel_stats[relay]
+        if Flag.RUNNING not in rel_stat.flags or Flag.BADEXIT in rel_stat.flags\
+          or Flag.VALID not in rel_stat.flags:
+            continue
+        if Flag.EXIT in rel_stat.flags and Flag.GUARD in rel_stat.flags:
+            D += rel_stat.consweight
+        elif Flag.EXIT in rel_stat.flags:
+            E += rel_stat.consweight
+    return E, D
+
+def write_to_mps_file(location_aware, out_dir, obj_function, theta,
+                      reduced_guards_to=None, reduced_as_to=None):
 
     print("Done. Writting ouut")
 
@@ -634,10 +681,17 @@ if __name__ == "__main__":
         load_and_compute_W_from_clusterinfo(args.tor_users_to_location,
                                             args.client_clust_representative)
         print("Computing L ...")
-        L = load_and_compute_from_solfile(W, args.deNasa_sol_guards)
+        #extract guards
+        network_state = get_network_state(args.network_state)
+        guards = {}
+        for relay in network_state.cons_rel_stats:
+            rel_stat = network_state.cons_rel_stats[relay]
+            if Flag.GUARD in rel_stat.flags and Flag.EXIT not in rel_stat.flags:
+                guards[relay] = rel_stat
+        L = load_and_compute_from_solfile(W, guards, args.deNasa_sol_guards)
         model_opt_problem_for_denasa_exit(W, repre, L, args.penalty_vanilla,
-                                          args.network_state, args.obj_function,
-                                          theta=args.theta,
+                                          args.network_state, args.fp_to_asn,
+                                          args.obj_function, theta=args.theta,
                                           cluster_file=args.cluster_file,
                                           out_dir=args.out_dir,
                                           pmatrix_file=args.pmatrix,
@@ -684,4 +738,4 @@ if __name__ == "__main__":
             # location_aware = pickle.load(f)
             # location_aware.solve(pulp.PULP_CPLEX_CMD(msg=1, path="/home/frochet/.cplex/cplex/bin/x86-64_linux/cplex"))
             # for v in location_aware.variables():
-                print(v.name, "=", v.varValue)
+            #    print(v.name, "=", v.varValue)
