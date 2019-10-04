@@ -85,8 +85,8 @@ def _get_max_guardconsweight(relays):
         if row['IsGuard'] is True and row['IsExit'] is True:
             continue
         guards[row['Name']] = row
-        if row['Consensus(KB/s)'] > max_guard_consensus_weight:
-            max_guard_consensus_weight = row['Consensus(KB/s)']
+        if row['ConsensusWeight'] > max_guard_consensus_weight:
+            max_guard_consensus_weight = row['ConsensusWeight']
     return max_guard_consensus_weight, guards
 
 def compute_cr_weights(args):
@@ -110,7 +110,7 @@ def compute_cr_weights(args):
             locationsinfo[location][guard['Name']] = "{0} {1} {2} {3}".format(
                     guard['Name'],
                     int(round(args.alpha*thisguard_res +
-                    (guard['Consensus(KB/s)'])*(1-args.alpha))),
+                    (guard['ConsensusWeight'])*(1-args.alpha))),
                     -1,
                     -1)
     return locationsinfo
@@ -152,7 +152,7 @@ def compute_claps_cr_weights(args):
             locationsinfo[location][guard['Name']] = "{0} {1} {2} {3}".format(
                 guard['Name'],
                 thisguard_weight,
-                int(round(guard['Consensus(KB/s)']-L[guard['Name']])),
+                int(round(guard['ConsensusWeight']-L[guard['Name']])),
                 -1)
     return locationsinfo
 if __name__ == "__main__":
