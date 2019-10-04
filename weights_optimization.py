@@ -405,9 +405,16 @@ def model_opt_problem_for_denasa_exit(W, repre, L, penalty_vanilla, ns_file,
                                       reduced_guards_to=None,
                                       disable_SWgg=False):
     
-    network_sate = get_network_state(ns_file)
+    network_state = get_network_state(ns_file)
     
     E, D = compute_tot_pos_bandwidths(network_state)
+    
+    exitids = []
+    for relay in network_state.cons_rel_stats:
+        rel_stats = network_state.cons_rel_stats[relay]
+        if Flag.EXIT in rel_stats.flags and Flag.GUARD not in\
+           rel_stats.flags:
+            exitids.append(relay)
 
     #LP variables
     
@@ -419,21 +426,29 @@ def model_opt_problem_for_denasa_exit(W, repre, L, penalty_vanilla, ns_file,
     # kinda sucks. One option would be to cluster guard relays in the same logic
     # we initially clustered clients
     
-    # Let's assume WGE_i = W for now (i.e., 1 Exit distribution per Client
-    # Cluster)
-    
+    ##L_norm will be used for re-computing the penalty matrix
     location_aware = LpProblem("Optimal location-aware path selection for exit deNasa weights", LpMinimize)
+    guard_ases = {} 
+    for guard in guards:
+        if fp_to_asn[guard] not in guard_ases:
+            guard_ases[fp_to_asn[guard]] = [guard]
+        else:
+            guard_ases[fp_to_asn[guard]].append(guard)
 
+    join_location = {} #TODO $cli_as, $guard_as for all and contains the join
+    for loc_cli in W:
+        for loc_guard in guard_ases:
+            join_location["{}, {}".format(loc_cli, loc_guard)] = W[loc_cli]*sum([L[guard] for guard in guard_ases[loc_guard]])
+    ## Norm join_location:
+    tot = sum(join_location.values())
+    for loc in join_location:
+        join_location[loc] = join_location[loc]/tot
+
+    #distribution of client weights and denasa Guard weights
     R = {}
-    for loc in W:
+    for loc in join_location:
         R[loc] = LpVariable.dicts(loc, exitids, lowBound = 0,
                 upBound=E)
-    ##L_norm will be used for re-computing the penalty matrix
-    tot = sum(L.values())
-    for guard in L:
-        L_norm[guard] = L[guard]/tot
-    
-
     if not pmatrix_file:
         pmatrix = build_fake_pmatrix_profile(exitids, W)
     else:
@@ -447,17 +462,16 @@ def model_opt_problem_for_denasa_exit(W, repre, L, penalty_vanilla, ns_file,
     # guard AS with the p
     LE = {}
     for exitid in exitids:
-        LE[exitid] = LpAffineExpression([(R[loc][exitid], W[loc]) for loc in W],
-                                        name="LE({})".format(exitid))
+        LE[exitid] = LpAffineExpression([(R[loc][exitid], join_location[loc]) for loc in join_location], name="LE({})".format(exitid))
     
     objective = LpVariable("L_upper_bound", lowBound = 0)
     print("Computing the lpSum of LpAffineExpressions as an objective function... (this can take time)")
     location_aware += lpSum([LpAffineExpression([(R[loc][exitid],
-                                                  W[loc]*pmatrix[loc][fp_to_asn[exitid]]) for loc in W]) for exitid in exitids]), "Z"
+                                                  join_location[loc]*pmatrix[loc][fp_to_asn[exitid]]) for loc in join_location]) for exitid in exitids]), "Z"
 
     ## Computing constraints
     print("Computing constraints \sum R_l(i) == E+D (under the assumption E+D is scarce, this is the right way to load balance)")
-    for loc in W:
+    for loc in join_location:
         #location_aware.extend(prob_extension)
         sum_R = lpSum([R[loc][exitid] for exitid in exitids])
         location_aware += sum_R == E+D, "\sum R(i) == E+D for loc {}".format(loc)
@@ -465,15 +479,15 @@ def model_opt_problem_for_denasa_exit(W, repre, L, penalty_vanilla, ns_file,
     print("Computing constraints LE(i) <= BW_i")
 
     print("GPA constraint, using theta = {} and relCost(i) = BW_i/sum_j(BW_j)".format(theta))
-    for loc in W:
+    for loc in join_location:
         for exitid in exitids:
             # Assuming exit relays are used at 100% in exit position
             location_aware += R[loc][exitid] <= theta*exitids[exitid].consweight
     print("Done.")
-    print("Adding 'no worse than vanilla constraint'")
-    for loc in W:
-        for ori_loc in repre[loc]:
-            location_aware += LpAffineExpression([(R[loc][exitid], pmatrix_unclustered[ori_loc][exitid]) for exitid in exitids]) <= penalty_vanilla[ori_loc] * (E+D)
+    # print("Adding 'no worse than vanilla constraint'")
+    # for loc in W:
+        # for ori_loc in repre[loc]:
+            # location_aware += LpAffineExpression([(R[loc][exitid], pmatrix_unclustered[ori_loc][exitid]) for exitid in exitids]) <= penalty_vanilla[ori_loc] * (E+D)
     
     write_to_mps_file(location_aware, out_dir, obj_function, theta)
 
