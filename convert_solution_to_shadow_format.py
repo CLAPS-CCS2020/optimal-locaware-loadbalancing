@@ -13,7 +13,7 @@ OUTPUT to a file: lines of:
 import os, sys
 import argparse
 import json, pandas
-from util import parse_client_cluster, produce_clustered_pmatrix
+from util import parse_client_cluster, produce_clustered_pmatrix, tille_pr
 from bandwidth_weights import *
 from weights_optimization import load_and_compute_W_from_clusterinfo
 
@@ -113,6 +113,11 @@ def compute_cr_weights(args):
                     (guard['ConsensusWeight'])*(1-args.alpha))),
                     -1,
                     -1)
+        ##compute Tillé
+        tsize = int(round(len(guards)*0.1))
+        tille_weights = tille_pr(locationsinfo[locations].keys(),
+                                 locationsinfo[location].values(), tsize)
+        locationsinfo[location] = tille_weights
     return locationsinfo
 
 def compute_claps_cr_weights(args):

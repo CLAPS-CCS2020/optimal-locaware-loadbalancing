@@ -127,18 +127,6 @@ def timestamp(t):
     ts = td.days*24*60*60 + td.seconds
     return ts
 
-def counter_raptor_tille_sampling(pmatrix, guards, g):
-    """
-    Following Alg described in  Counter-Raptor S&P paper p.8
-    """
-    new_pmatrix = {}
-    k = len(guards)*g
-    for loc in pmatrix:
-        S = guards[:]
-        for guard in S:
-            pass #TODO
-            
-    
 def handle_edge_case(keys, weights, m):
 
     n = len(keys)
