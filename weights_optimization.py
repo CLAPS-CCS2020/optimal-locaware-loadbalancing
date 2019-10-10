@@ -413,11 +413,11 @@ def model_opt_problem_for_denasa_exit(W, repre, L, penalty_vanilla, ns_file,
     
     E, D = compute_tot_pos_bandwidths(network_state)
     
+    #We take all exits and guard+exits relays
     exitids = []
     for relay in network_state.cons_rel_stats:
         rel_stats = network_state.cons_rel_stats[relay]
-        if Flag.EXIT in rel_stats.flags and Flag.GUARD not in\
-           rel_stats.flags:
+        if Flag.EXIT in rel_stats.flags:
             exitids.append(relay)
 
     #LP variables
@@ -452,11 +452,11 @@ def model_opt_problem_for_denasa_exit(W, repre, L, penalty_vanilla, ns_file,
     R = {}
     for loc in join_location:
         R[loc] = LpVariable.dicts(loc, exitids, lowBound = 0,
-                upBound=E)
+                                  upBound=E+D)
     if not pmatrix_file:
         pmatrix = build_fake_pmatrix_profile(exitids, join_location)
     else:
-        print("Loading Penalty matrix")
+        print("Loading Penalty matrix.. this can take time")
         with open(pmatrix_file, 'r') as f:
             pmatrix_unclustered = json.load(f)
         print("Unclustered pmatrix loaded... Now clustering that matrix for"
@@ -473,7 +473,7 @@ def model_opt_problem_for_denasa_exit(W, repre, L, penalty_vanilla, ns_file,
         LE[exitid] = LpAffineExpression([(R[loc][exitid], join_location[loc]) for loc in join_location], name="LE({})".format(exitid))
     
     objective = LpVariable("L_upper_bound", lowBound = 0)
-    print("Computing the lpSum of LpAffineExpressions as an objective function... (this can take time)")
+    print("Computing the lpSum of LpAffineExpressions as an objective function... ")
     location_aware += lpSum([LpAffineExpression([(R[loc][exitid],
                                                   join_location[loc]*pmatrix[loc][fp_to_asn[exitid]]) for loc in join_location]) for exitid in exitids]), "Z"
 
