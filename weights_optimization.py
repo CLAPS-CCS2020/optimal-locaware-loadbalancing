@@ -401,7 +401,8 @@ def model_opt_problem_for_shadow(W, repre, client_distribution,
     location_aware.writeMPS(outpath+".mps")
     #location_aware.solve()
 
-def model_opt_problem_for_denasa_exit(W, repre, L, penalty_vanilla, ns_file,
+def model_opt_problem_for_denasa_exit(W, repre, L, asn_to_users_file,
+                                      penalty_vanilla, ns_file,
                                       fp_to_asn_file,
                                       obj_function, cluster_file=None,
                                       out_dir=None, pmatrix_file=None,
@@ -410,6 +411,9 @@ def model_opt_problem_for_denasa_exit(W, repre, L, penalty_vanilla, ns_file,
                                       disable_SWgg=False):
     
     network_state = get_network_state(ns_file)
+    
+    with open(asn_to_users_file) as f:
+        asn_to_users = json.load(f)
     
     E, D = compute_tot_pos_bandwidths(network_state)
     
@@ -699,11 +703,10 @@ if __name__ == "__main__":
             disable_SWgg=args.disable_SWgg)
     elif args.sub == "DeNASA_EXIT":
         ##
-        print("Computing Client density need to recompute L from all CLAPS DeNASA guard weighs ...")
+        print("Computing Client representative weighting ...")
         W, repre =\
         load_and_compute_W_from_clusterinfo(args.tor_users_to_location,
                                             args.client_clust_representative)
-        print("Computing L ...")
         #extract guards
         network_state = get_network_state(args.network_state)
         guards = {}
@@ -711,8 +714,12 @@ if __name__ == "__main__":
             rel_stat = network_state.cons_rel_stats[relay]
             if Flag.GUARD in rel_stat.flags and Flag.EXIT not in rel_stat.flags:
                 guards[relay] = rel_stat
+        print("Compute total guard usage in entry and middle, for each guard (known from previous "
+              "CLAPS deNasa results) ...")
         L = load_and_compute_from_solfile(W, guards, args.deNasa_sol_guards)
-        model_opt_problem_for_denasa_exit(W, repre, L, args.penalty_vanilla,
+        model_opt_problem_for_denasa_exit(W, repre, L,
+                                          args.tor_users_to_location
+                                          args.penalty_vanilla,
                                           args.network_state, args.fp_to_asn,
                                           args.obj_function, theta=args.theta,
                                           cluster_file=args.cluster_file,
@@ -728,37 +735,3 @@ if __name__ == "__main__":
     else:
         sys.exit(-1)
 
-
-    ## TODO Cleanup later
-
-    # if args.tor_users_to_location:
-        # if args.pickle and args.cust_locations:
-            # W = load_and_compute_W(args.tor_users_to_location, args.cust_locations, args.reduced_as_to)
-        # elif args.json and args.client_clust_representative:
-            # W, repre = load_and_compute_W_from_clusterinfo(args.tor_users_to_location, args.client_clust_representative)
-        # elif args.json:
-            # W = load_and_compute_W_from_citymap(args.tor_users_to_location)
-        # elif args.in_shadow:
-            # ## this W is computed for shadow simulations, not real world.
-            # W = load_and_compute_W_from_shadowcityinfo(args.tor_users_to_location, args.cityinfo)
-        # if args.in_shadow:
-            # model_opt_problem_for_shadow(W, repre, args.tor_users_to_location,
-                                         # args.penalty_vanilla,
-                                         # args.network_state, args.obj_function,
-                                         # theta=args.theta,
-                                         # pmatrix_file=args.pmatrix,
-                                         # out_dir=args.out_dir,
-                                         # disable_SWgg=args.disable_SWgg)
-                    
-        # else:
-            # model_opt_problem(W, repre, args.tor_users_to_location, args.penalty_vanilla, args.network_state, args.obj_function, theta=args.theta,
-                # cluster_file=args.cluster_file, out_dir=args.out_dir, pmatrix_file=args.pmatrix,
-                # reduced_as_to=args.reduced_as_to, reduced_guards_to=args.reduced_guards_to,
-                # disable_SWgg=args.disable_SWgg)
-    # ## Load the problem and solve() it
-    # elif args.load_problem:
-        # with open(args.load_problem, "rb") as f:
-            # location_aware = pickle.load(f)
-            # location_aware.solve(pulp.PULP_CPLEX_CMD(msg=1, path="/home/frochet/.cplex/cplex/bin/x86-64_linux/cplex"))
-            # for v in location_aware.variables():
-            #    print(v.name, "=", v.varValue)
