@@ -92,13 +92,27 @@ def plot_cdf(vals, label, color=None):
         plt.plot(list(map(itemgetter(0), vals)), ys,
                 label=label, antialiased=True)
 
-def produce_clustered_pmatrix_for_denasa(pmatrix, repre, asn_to_users, exits):
+def produce_clustered_pmatrix_for_denasa(pmatrix, repre, asn_to_users, guard_ases, exitids):
     """
     TODO
     """
     pmatrix_clustered = {}
     for representative, ases in repre.items():
-        pass
+        for guard_as in guard_ases:
+            new_loc = "{}, {}".format(representative, guard_as)
+            pmatrix_clustered[new_loc] = {}
+            for exit in exitids:
+                tot = 0
+                tot_users = 0
+                for asn in ases:
+                    tot += pmatrix["{}, {}".format(asn, guard_as)][exit] * asn_to_users[asn]
+                    tot_users += asn_to_users[asn]
+                pmatrix_clustered[new_loc][exit] = tot/tot_users
+    return pmatrix_clustered
+                
+
+                
+
 
 
 def produce_clustered_pmatrix(pmatrix, repre, asn_to_users, guards):

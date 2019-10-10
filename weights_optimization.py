@@ -4,7 +4,7 @@ from slim_ases import *
 from pulp import *
 import numpy as np
 import pickle
-from util import get_network_state, produce_clustered_pmatrix
+from util import get_network_state, produce_clustered_pmatrix, produce_clustered_pmatrix_for_denasa
 from process_ases import GETAS_URL
 import requests
 import random
@@ -439,7 +439,7 @@ def model_opt_problem_for_denasa_exit(W, repre, L, penalty_vanilla, ns_file,
         else:
             guard_ases[fp_to_asn[guard]].append(guard)
 
-    join_location = {} #TODO $cli_as, $guard_as for all and contains the join
+    join_location = {} 
     for loc_cli in W:
         for loc_guard in guard_ases:
             join_location["{}, {}".format(loc_cli, loc_guard)] = W[loc_cli]*sum([L[guard] for guard in guard_ases[loc_guard]])
@@ -454,12 +454,16 @@ def model_opt_problem_for_denasa_exit(W, repre, L, penalty_vanilla, ns_file,
         R[loc] = LpVariable.dicts(loc, exitids, lowBound = 0,
                 upBound=E)
     if not pmatrix_file:
-        pmatrix = build_fake_pmatrix_profile(exitids, W)
+        pmatrix = build_fake_pmatrix_profile(exitids, join_location)
     else:
         print("Loading Penalty matrix")
         with open(pmatrix_file, 'r') as f:
             pmatrix_unclustered = json.load(f)
-        pmatrix = produce_clustered_pmatrix_for_denasa(pmatrix_unclustered, repre, asn_to_users, gclusters)
+        print("Unclustered pmatrix loaded... Now clustering that matrix for"
+              " representative.. Ugly O(m*n*q*r)")
+        pmatrix = produce_clustered_pmatrix_for_denasa(pmatrix_unclustered,
+                                                       repre, asn_to_users,
+                                                       guard_ases, exitids)
     
     # pmatrix should now be the form of "Client cluster AS, Guard AS", exit AS => penalty
     # We now want Client Cluster AS, exit AS => penalty by summing over all
