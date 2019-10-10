@@ -24,22 +24,7 @@ location which should satify the constraints of our problem (see README.md, proc
 
 """
 
-parser = argparse.ArgumentParser(description="Model a LP problem and output a "
-                                 ".mps representation of it")
 common_parser = argparse.ArgumentParser(add_help=False)
-
-sub = parser.add_subparsers(dest="sub")
-
-cr_parser = sub.add_parser("CR", parents=[common_parser], help="For Counter-Raptor security analysis")
-cr_shadow_parser = sub.add_parser("CR_SHADOW", parents=[common_parser], help="For Counter-Raptor shadow "
-                                  "simulation")
-denasa_parser = sub.add_parser("DeNASA", parents=[common_parser], add_help=False) #help="For DeNASA security analysis")
-denasa_exit_parser = sub.add_parser("DeNASA_EXIT", parents=[common_parser,
-                                                           denasa_parser],
-                                    help="For DeNASA g&e security analysis")
-denasa_parser = sub.add_parser("DeNASA_SHADOW", parents=[common_parser], help="For DeNASA shadow "
-                               "simulations")
-
 common_parser.add_argument("--tor_users_to_location", help="path to the pickle file containing the distribution of Tor users per country")
 # parser.add_argument("--pickle", action="store_true", default=False)
 # parser.add_argument("--json", action="store_true", default=False)
@@ -55,6 +40,20 @@ common_parser.add_argument("--out_dir", help="out dir to save the .lp file")
 # parser.add_argument("--binary_search_theta", action='store_true', default=False)
 common_parser.add_argument("--theta", type=float, help="set theta value for gpa", default=5.0)
 
+##Parse instances
+parser = argparse.ArgumentParser(description="Model a LP problem and output a "
+                                 ".mps representation of it")
+sub = parser.add_subparsers(dest="sub")
+
+cr_parser = sub.add_parser("CR", parents=[common_parser], help="For Counter-Raptor security analysis")
+cr_shadow_parser = sub.add_parser("CR_SHADOW", parents=[common_parser], help="For Counter-Raptor shadow "
+                                  "simulation")
+
+denasa_parser = sub.add_parser("DeNASA", parents=[common_parser], add_help=False) #help="For DeNASA security analysis")
+denasa_shadow_parser = sub.add_parser("DeNASA_SHADOW", parents=[common_parser], help="For DeNASA shadow "
+                               "simulations")
+
+
 ## For Counter Raptor security analysis
 cr_parser.add_argument("--network_state", help="filepath to the network state containing Tor network's data (shadow_relay_dump in case of shadow simulation")
 cr_parser.add_argument("--cluster_file", type=str, help="Pickle file of clustered guards")
@@ -69,6 +68,8 @@ cr_shadow_parser.add_argument("--shadow_relay_dump", help="Path to a .json file"
 denasa_parser.add_argument("--network_state", help="filepath to the network state containing Tor network's data (shadow_relay_dump in case of shadow simulation")
 denasa_parser.add_argument("--cluster_file", type=str, help="Pickle file of clustered guards")
 ## For DeNASA g&e security analysis
+denasa_exit_parser = sub.add_parser("DeNASA_EXIT", parents=[denasa_parser],
+                                    help="For DeNASA g&e security analysis")
 denasa_exit_parser.add_argument("--deNasa_sol_guards", help="filepath to the solver"
                                 " output file for denasa guard weight LP"
                                 " problem")
@@ -319,6 +320,8 @@ def model_opt_problem_for_shadow(W, repre, client_distribution,
     print("E:{}, D:{} and G:{}".format(E,D,G))
     bwweight = BandwidthWeights()
     casename, Wgg, Wgd, Wee, Wed, Wmg, Wme, Wmd = bwweight.recompute_bwweights(G, M, D, E, G+M+D+E)
+    print("casename: {}, Wgg:{}, Wgd:{}, Wee:{}, Wmg:{}, Wme:{}, Wmd:{}".format(casename, Wgg,
+        Wgd, Wee, Wed, Wmg, Wme, Wmd))
     Wgg = Wgg/10000.0
     print("Wgg is {}".format(Wgg))
     SWgg = (E + D)/G #SWgg for Scarce Wgg
@@ -330,6 +333,7 @@ def model_opt_problem_for_shadow(W, repre, client_distribution,
     
     if not disable_SWgg:
         Wgg = SWgg
+    print("Using Wgg={}".format(Wgg))
     #model the problem
     location_aware = LpProblem("Location aware selection", LpMinimize)
     
@@ -478,7 +482,7 @@ def model_opt_problem_for_denasa_exit(W, repre, L, penalty_vanilla, ns_file,
     write_to_mps_file(location_aware, out_dir, obj_function, theta)
 
 def model_opt_problem(W, repre, asn_to_users_file, penalty_vanilla, ns_file, obj_function, cluster_file=None, out_dir=None, pmatrix_file=None,
-        theta=2.0, reduced_as_to=None, reduced_guards_to=None, disable_SWgg=False):
+        theta=5.0, reduced_as_to=None, reduced_guards_to=None, disable_SWgg=False):
     
     network_state = get_network_state(ns_file)
     
@@ -650,6 +654,7 @@ def write_to_mps_file(location_aware, out_dir, obj_function, theta,
 
     
 if __name__ == "__main__":
+
     args = parser.parse_args()
     ## Compute appropritate values and model the optimization problem
 
