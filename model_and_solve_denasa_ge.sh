@@ -3,7 +3,7 @@ OBJ_FUNC=3
 PMATRIX=denasa_complete/denasa_penalty.json
 #path to vanilla expected penalties for suspicious ASes
 VANILLA_EPL_DENASA_G=denasa_complete/denasa_vanilla_epl.json
-VANILLA_EPL_DENASA_GE=
+VANILLA_EPL_DENASA_GE=test
 #Directory which holds only all clustering_n_badness.txt files
 CLUSTER_CLIENT_INFO=denasa_complete/clustering_files/
 #contains all guard info
@@ -12,7 +12,7 @@ CLUSTER_GUARD_FILE=denasa_complete/clustersidentity_1552608000
 #contains slim network state info:
 NETWORK_STATE=out/network-state-2019-03/2019-03-15-00-00-00-network_state
 # fingerprints to asn file
-FP_TO_ASN=
+FP_TO_ASN=test
 #in which directory .mps and .sol are written
 OUT=$1
 #GP attack parameter

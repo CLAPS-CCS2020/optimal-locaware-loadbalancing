@@ -718,7 +718,7 @@ if __name__ == "__main__":
               "CLAPS deNasa results) ...")
         L = load_and_compute_from_solfile(W, guards, args.deNasa_sol_guards)
         model_opt_problem_for_denasa_exit(W, repre, L,
-                                          args.tor_users_to_location
+                                          args.tor_users_to_location,
                                           args.penalty_vanilla,
                                           args.network_state, args.fp_to_asn,
                                           args.obj_function, theta=args.theta,
