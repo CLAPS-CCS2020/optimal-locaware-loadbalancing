@@ -194,7 +194,15 @@ def load_and_compute_from_solfile(W, guards, pathsolfile):
                 L[guard] += W[loc]*parsed_weights[loc][guard]
     return L
 
-def build_fake_pmatrix_profile(guards, W):
+def build_fake_fp_to_asn(network_state, repre):
+    fp_to_asn = {}
+    keys = repre.keys()
+    for relay in network_state.cons_rel_stats:
+        fp_to_asn[relay] = random.randint(1, 65536)
+    return fp_to_asn
+
+
+def build_fake_pmatrix_profile(nodes, locs, randrange):
     """
         build a bivariate dicrete distribution for AS n and Guard i
         with a penalty score
@@ -202,17 +210,11 @@ def build_fake_pmatrix_profile(guards, W):
         This function builds a fake one for test purpose 
     """
     pmatrix = {}
-    tot = 0
-    for loc in W:
+    for loc in locs:
         if loc not in pmatrix:
             pmatrix[loc] = {}
-        for guard in guards:
-            #pmatrix[guard][loc] = random.randint(0,1000)
-            pmatrix[loc][guard] = 1000 #uniform penalty
-        tot += sum(pmatrix[loc].values())
-    for guard in guards:
-        for loc in W:
-            pmatrix[loc][guard] = pmatrix[loc][guard]/tot
+        for node in nodes:
+            pmatrix[loc][node] = random.randint(randrange[0], randrange[1])
     return pmatrix
 
 def model_opt_problem_lastor_shadow(shadow_relay_info, obj_function, out_dir=None, pmatrix_file=None,
@@ -423,6 +425,12 @@ def model_opt_problem_for_denasa_exit(W, repre, L, asn_to_users_file,
         rel_stats = network_state.cons_rel_stats[relay]
         if Flag.EXIT in rel_stats.flags:
             exitids.append(relay)
+    
+    if fp_to_asn_file:
+        with open(fp_to_asn_file) as f:
+            fp_to_asn = json.load(f)
+    else:
+        fp_to_asn = build_fake_fp_to_asn(network_state, repre)
 
     #LP variables
     
@@ -458,16 +466,15 @@ def model_opt_problem_for_denasa_exit(W, repre, L, asn_to_users_file,
         R[loc] = LpVariable.dicts(loc, exitids, lowBound = 0,
                                   upBound=E+D)
     if not pmatrix_file:
-        pmatrix = build_fake_pmatrix_profile(exitids, join_location)
+        pmatrix = build_fake_pmatrix_for_denasa(exitids, join_location)
     else:
-        print("Loading Penalty matrix.. this can take time")
-        with open(pmatrix_file, 'r') as f:
-            pmatrix_unclustered = json.load(f)
-        print("Unclustered pmatrix loaded... Now clustering that matrix for"
-              " representative.. Ugly O(m*n*q*r)")
-        pmatrix = produce_clustered_pmatrix_for_denasa(pmatrix_unclustered,
-                                                       repre, asn_to_users,
-                                                       guard_ases, exitids)
+            with open(pmatrix_file, 'r') as f:
+                pmatrix_unclustered = json.load(f)
+            print("Unclustered pmatrix loaded... Now clustering that matrix for"
+                  " representative.. Ugly O(m*n*q*r)")
+            pmatrix = produce_clustered_pmatrix_for_denasa(pmatrix_unclustered,
+                                                           repre, asn_to_users,
+                                                           guard_ases, exitids)
     
     # pmatrix should now be the form of "Client cluster AS, Guard AS", exit AS => penalty
     # We now want Client Cluster AS, exit AS => penalty by summing over all
