@@ -430,6 +430,7 @@ def model_opt_problem_for_denasa_exit(W, repre, L, asn_to_users_file,
         with open(fp_to_asn_file) as f:
             fp_to_asn = json.load(f)
     else:
+        print("WARN: using a fake fp_to_asn generated info")
         fp_to_asn = build_fake_fp_to_asn(network_state, repre)
 
     #LP variables
@@ -445,6 +446,7 @@ def model_opt_problem_for_denasa_exit(W, repre, L, asn_to_users_file,
     ##L_norm will be used for re-computing the penalty matrix
     location_aware = LpProblem("Optimal location-aware path selection for exit deNasa weights", LpMinimize)
     guard_ases = {} 
+    print("Computing the list of all guard ases")
     for guard in guards:
         if fp_to_asn[guard] not in guard_ases:
             guard_ases[fp_to_asn[guard]] = [guard]
@@ -466,16 +468,17 @@ def model_opt_problem_for_denasa_exit(W, repre, L, asn_to_users_file,
         R[loc] = LpVariable.dicts(loc, exitids, lowBound = 0,
                                   upBound=E+D)
     if not pmatrix_file:
-        pmatrix = build_fake_pmatrix_profile(exitids, join_location, [0, 1])
+        print("WARN: building fake pmatrix")
+        pmatrix = build_fake_pmatrix_profile([fp_to_asn[exitid] for exitid in exitids], join_location, [0, 1])
     else:
-            with open(pmatrix_file, 'r') as f:
-                pmatrix_unclustered = json.load(f)
-            print("Unclustered pmatrix loaded... Now clustering that matrix for"
-                  " representative.. Ugly O(m*n*q*r)")
-            pmatrix = produce_clustered_pmatrix_for_denasa(pmatrix_unclustered,
-                                                           repre, asn_to_users,
-                                                           guard_ases, exitids)
-    
+        with open(pmatrix_file, 'r') as f:
+            pmatrix_unclustered = json.load(f)
+        print("Unclustered pmatrix loaded... Now clustering that matrix for"
+              " representative.. Ugly O(m*n*q*r)")
+        pmatrix = produce_clustered_pmatrix_for_denasa(pmatrix_unclustered,
+                                                       repre, asn_to_users,
+                                                       guard_ases, exitids)
+
     # pmatrix should now be the form of "Client cluster AS, Guard AS", exit AS => penalty
     # We now want Client Cluster AS, exit AS => penalty by summing over all
     # guard AS with the p
@@ -501,7 +504,7 @@ def model_opt_problem_for_denasa_exit(W, repre, L, asn_to_users_file,
     for loc in join_location:
         for exitid in exitids:
             # Assuming exit relays are used at 100% in exit position
-            location_aware += R[loc][exitid] <= theta*exitids[exitid].consweight
+            location_aware += R[loc][exitid] <= theta*network_state.cons_rel_stats[exitid].consweight
     print("Done.")
     # print("Adding 'no worse than vanilla constraint'")
     # for loc in W:
