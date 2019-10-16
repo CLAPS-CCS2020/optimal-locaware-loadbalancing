@@ -4,7 +4,7 @@ from slim_ases import *
 from pulp import *
 import numpy as np
 import pickle
-from util import get_network_state, produce_clustered_pmatrix, produce_clustered_pmatrix_for_denasa
+from util import get_network_state, produce_clustered_pmatrix, produce_clustered_pmatrix_for_denasa, parse_sol_file
 from process_ases import GETAS_URL
 import requests
 import random
@@ -33,8 +33,8 @@ common_parser.add_argument("--disable_SWgg", action="store_true", default=False)
 # parser.add_argument("--cust_locations", help="path to the file containing the distribution of IPs per customer AS")
 common_parser.add_argument("--obj_function", type=int, help="Choice of objective function")
 common_parser.add_argument("--client_clust_representative", type=str, help="Ryan's clusterization file for ASes in one AS representative")
-common_parser.add_argument("--pmatrix", type=str, help="Penalty matrix")
-common_parser.add_argument("--penalty_vanilla", type=str, help="Vanilla penalty vector for each location")
+common_parser.add_argument("--pmatrix", type=str, default=None, help="Penalty matrix")
+common_parser.add_argument("--penalty_vanilla", default=None, type=str, help="Vanilla penalty vector for each location")
 # parser.add_argument("--load_problem", help="filepth with problem to solve if already computed")
 common_parser.add_argument("--out_dir", help="out dir to save the .lp file")
 # parser.add_argument("--binary_search_theta", action='store_true', default=False)
@@ -430,6 +430,7 @@ def model_opt_problem_for_denasa_exit(W, repre, L, asn_to_users_file,
         with open(fp_to_asn_file) as f:
             fp_to_asn = json.load(f)
     else:
+        print("WARN: using a fake fp_to_asn generated info")
         fp_to_asn = build_fake_fp_to_asn(network_state, repre)
 
     #LP variables
@@ -445,6 +446,7 @@ def model_opt_problem_for_denasa_exit(W, repre, L, asn_to_users_file,
     ##L_norm will be used for re-computing the penalty matrix
     location_aware = LpProblem("Optimal location-aware path selection for exit deNasa weights", LpMinimize)
     guard_ases = {} 
+    print("Computing the list of all guard ases")
     for guard in guards:
         if fp_to_asn[guard] not in guard_ases:
             guard_ases[fp_to_asn[guard]] = [guard]
@@ -466,16 +468,17 @@ def model_opt_problem_for_denasa_exit(W, repre, L, asn_to_users_file,
         R[loc] = LpVariable.dicts(loc, exitids, lowBound = 0,
                                   upBound=E+D)
     if not pmatrix_file:
-        pmatrix = build_fake_pmatrix_for_denasa(exitids, join_location)
+        print("WARN: building fake pmatrix")
+        pmatrix = build_fake_pmatrix_profile([fp_to_asn[exitid] for exitid in exitids], join_location, [0, 1])
     else:
-            with open(pmatrix_file, 'r') as f:
-                pmatrix_unclustered = json.load(f)
-            print("Unclustered pmatrix loaded... Now clustering that matrix for"
-                  " representative.. Ugly O(m*n*q*r)")
-            pmatrix = produce_clustered_pmatrix_for_denasa(pmatrix_unclustered,
-                                                           repre, asn_to_users,
-                                                           guard_ases, exitids)
-    
+        with open(pmatrix_file, 'r') as f:
+            pmatrix_unclustered = json.load(f)
+        print("Unclustered pmatrix loaded... Now clustering that matrix for"
+              " representative.. Ugly O(m*n*q*r)")
+        pmatrix = produce_clustered_pmatrix_for_denasa(pmatrix_unclustered,
+                                                       repre, asn_to_users,
+                                                       guard_ases, exitids)
+
     # pmatrix should now be the form of "Client cluster AS, Guard AS", exit AS => penalty
     # We now want Client Cluster AS, exit AS => penalty by summing over all
     # guard AS with the p
@@ -501,7 +504,7 @@ def model_opt_problem_for_denasa_exit(W, repre, L, asn_to_users_file,
     for loc in join_location:
         for exitid in exitids:
             # Assuming exit relays are used at 100% in exit position
-            location_aware += R[loc][exitid] <= theta*exitids[exitid].consweight
+            location_aware += R[loc][exitid] <= theta*network_state.cons_rel_stats[exitid].consweight
     print("Done.")
     # print("Adding 'no worse than vanilla constraint'")
     # for loc in W:
@@ -549,7 +552,7 @@ def model_opt_problem(W, repre, asn_to_users_file, penalty_vanilla, ns_file, obj
     #pmatrix is a discrete bivariate distribution [guard][location] which
     #gives a high score if the path between location and guard is bad
     if not pmatrix_file:
-        pmatrix = build_fake_pmatrix_profile(gclustersids, W)
+        pmatrix = build_fake_pmatrix_profile(gclustersids, W, [0, 1000])
     else:
         print("Loading Penalty matrix")
         with open(pmatrix_file, 'r') as f:
@@ -640,9 +643,9 @@ def model_opt_problem(W, repre, asn_to_users_file, penalty_vanilla, ns_file, obj
             location_aware += R[loc][gclusterid] <= theta*gclusters[gclusterid].tot_consweight*Wgg
     print("Done.")
     print("Adding 'no worse than vanilla constraint'")
-    for loc in W:
-        for ori_loc in repre[loc]:
-            location_aware += LpAffineExpression([(R[loc][gclusterid], pmatrix_unclustered[ori_loc][gclusterid]) for gclusterid in gclustersids]) <= penalty_vanilla[ori_loc] * G
+    #for loc in W:
+    #    for ori_loc in repre[loc]:
+    #       location_aware += LpAffineExpression([(R[loc][gclusterid], pmatrix_unclustered[ori_loc][gclusterid]) for gclusterid in gclustersids]) <= penalty_vanilla[ori_loc] * G
 
     write_to_mps_file(location_aware, out_dir, obj_function, theta)
 

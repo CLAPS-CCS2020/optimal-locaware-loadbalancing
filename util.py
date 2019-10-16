@@ -94,7 +94,7 @@ def plot_cdf(vals, label, color=None):
 
 def produce_clustered_pmatrix_for_denasa(pmatrix, repre, asn_to_users, guard_ases, exitids):
     """
-    TODO
+    Compute a pmatrix  $cluster, $guard_as -> $exit_as -> pvalue
     """
     pmatrix_clustered = {}
     for representative, ases in repre.items():
@@ -111,13 +111,9 @@ def produce_clustered_pmatrix_for_denasa(pmatrix, repre, asn_to_users, guard_ase
     return pmatrix_clustered
                 
 
-                
-
-
-
 def produce_clustered_pmatrix(pmatrix, repre, asn_to_users, guards):
     """
-    Computer a pmatrix cluster -> guard -> pvalue as the weighted sum
+    Compute a pmatrix cluster -> guard -> pvalue as the weighted sum
     of penalties given all ases of a given cluster, according to their number
     of users
     """
