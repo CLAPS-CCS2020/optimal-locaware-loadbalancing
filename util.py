@@ -39,6 +39,19 @@ def parse_client_cluster(filename):
             representative[tab[0]] = tab[1][:-1].split(',')
     return representative
 
+def parse_alternative_weights(filename):
+    alt_weights = {}
+    with open(filename) as f:
+        for line in f:
+            elems = line.split()
+            location = elems[0].split("_")[0]
+            name = elems[0].split("_")[1]
+            if location not in alt_weights:
+                alt_weights[location] = {}
+            weight = int(elems[1])
+            alt_weights[location][name] = weight
+    return alt_weights
+
 def get_network_states(network_state_files):
     """
         Inspired from github.com/torps/pathsim.py and yields
