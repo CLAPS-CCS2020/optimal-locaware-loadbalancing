@@ -203,13 +203,18 @@ a penalty matrix for We also
 - Get the penalty matrix and the expected vanilla penalties
 - Get the cluster info
 - Edit model_and_solve_cr_shadow.sh's variable path and run it (if
-  you're expect to run a CLAPS simulation)
-- Convert the sol file to its shadow format using
-  convert_solution_to_shadow_format.py (Not yet available)
-- Convert Counter-Raptor weights to its shadow format using
-  convert_solution_to_shadow_format.py (partially available ~ Resilience
-  not account the last part of the Counter-Raptor paper, where
-  Resiliences are re-computed with some smoothing)
+  you're expect to run a CLAPS simulation)  (this should produce
+  solution files)
+- Convert .sol files containing Counter-Raptor weights to its shadow format using
+  convert_solution_to_shadow_format.py. Name the new file obtained
+  "alternative_weights"
+  It  should look like a column for location_relayname and columns for
+  weights (-1 when we don't care of that weight). Move this file inside
+the root of the shadow simulation you want to run for CLAPS
+counter-raptor
 - use the shadowtortools post tools to update the topology with the
-  cluster (see shadowtortools postprodclust --help)
+  cluster (see shadowtortools postprodclust --help). This step is
+important to tell Tor which clients are coming from which location.
+
+- Don't forget to enable ClientUseCLAPSCounterRaptor 1 in client torrc
 
