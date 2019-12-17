@@ -68,34 +68,39 @@ if __name__ == "__main__":
     if args.case == "even":
         # E+D == G_new*Wgg => G_new = E+D/Wgg
         G_new = 2*E+2*D-M
-        print("G_new/G: {0}".format(G_new/G))
-        casename, Wgg, Wgd, Wee, Wed, Wmg, Wme,Wmd=bw_weights.recompute_bwweights(G_new, M, E, D, G_new+M+E+D)
-        print("{},Wgg={},Wgd={},Wee={},Wed={},Wmg={},Wme={},Wmd={}".format(casename,
-            Wgg, Wgd, Wee, Wed, Wmg, Wme, Wmd))
-
+    elif args.case == "scarce":
+        G_new = M
+    print("G_new/G: {0}".format(G_new/G))
+    casename, Wgg, Wgd, Wee, Wed, Wmg, Wme,Wmd=bw_weights.recompute_bwweights(G_new, M, E, D, G_new+M+E+D)
+    print("{},Wgg={},Wgd={},Wee={},Wed={},Wmg={},Wme={},Wmd={}".format(casename,
+        Wgg, Wgd, Wee, Wed, Wmg, Wme, Wmd))
+    if args.case == "even":
         print("this Network should be even G = M = E+D: G:{}, "
               "M:{}, E+D:{}".format(G_new*Wgg/10000.0,
                   M+G_new*Wmg/10000.0, E+D))
-        reducing_bw = G_new/G
-        print("Removing {}% of guard relays".format(reducing_bw*100))
-        nrelays = {}
-        for Index, relay in relays.iterrows():
-            if "relayguard" in relay['Name']:
-                nrelays[relay['Name']] = int(round(relay['ConsensusWeight'] * reducing_bw))
-                relays.at[Index, 'ConsensusWeight'] = nrelays[relay['Name']]
-        relays.to_csv("relay.choices.2.csv")
-        if args.config:
-            print("Editing the shadow config, and saving to shadow.config.2.xml")
-            edit_shadow_config(nrelays, args.config)
-        if args.v3bw:
-            print("Editing the v3bw file and saving to v3bw.2")
-            edit_v3bw_config(nrelays, args.v3bw)
-        if args.shadow_relay_dump:
-            with open(args.shadow_relay_dump) as f:
-                relay_dump = json.load(f)
-                for relay in nrelays:
-                    relay_dump[relay][6] = nrelays[relay]
-            with open("shadow_relay_dump.json", "w") as f:
-                json.dump(relay_dump, f)
-        
+    elif args.case == "scarce":
+        print("This network has scarce G bandwidth, and scarce M bandwidth -- We use the guard+exit relays to load-balance to: entry:{}, middle:{}, exit:{}".format(
+            (G_new*Wgg+D*Wgd)/10000.0, M+D*Wmd/10000.0, E+D*Wed/10000.0))
+    reducing_bw = G_new/G
+    print("Removing {}% of guard relays".format(100-reducing_bw*100))
+    nrelays = {}
+    for Index, relay in relays.iterrows():
+        if "relayguard" in relay['Name']:
+            nrelays[relay['Name']] = int(round(relay['ConsensusWeight'] * reducing_bw))
+            relays.at[Index, 'ConsensusWeight'] = nrelays[relay['Name']]
+    relays.to_csv("relay.choices.2.csv")
+    if args.config:
+        print("Editing the shadow config, and saving to shadow.config.2.xml")
+        edit_shadow_config(nrelays, args.config)
+    if args.v3bw:
+        print("Editing the v3bw file and saving to v3bw.2")
+        edit_v3bw_config(nrelays, args.v3bw)
+    if args.shadow_relay_dump:
+        with open(args.shadow_relay_dump) as f:
+            relay_dump = json.load(f)
+            for relay in nrelays:
+                relay_dump[relay][6] = nrelays[relay]
+        with open("shadow_relay_dump.json", "w") as f:
+            json.dump(relay_dump, f)
+    
 

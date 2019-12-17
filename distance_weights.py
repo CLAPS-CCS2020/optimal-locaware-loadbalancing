@@ -3,7 +3,8 @@ import sys, os
 import argparse
 import json
 import pandas
-from utils import parse_alternative_weights
+from util import parse_alternative_weights
+import math
 
 parser = argparse.ArgumentParser(description="")
 parser.add_argument("alternative_weights", help="alternative_weights file")
@@ -24,7 +25,7 @@ def compute_pr(weights):
 def compute_distance(unbalanced, balanced):
     distance = 0
     for guard in unbalanced:
-        distance += math.abs(unbalanced[guard]-balanced[guard])
+        distance += abs(unbalanced[guard]-balanced[guard])
     return distance
 
 if __name__ == "__main__":
@@ -43,12 +44,11 @@ if __name__ == "__main__":
     loc_distance = {}
     for loc in alt_weights:
         pr_relays = compute_pr(alt_weights[loc])
-        
-    loc_distance[loc] = compute_distance(pr_relay, balanced_pr)
+        loc_distance[loc] = compute_distance(pr_relays, balanced_pr)
     
     sorted_distlist = [(k, loc_distance[k]) for k in sorted(loc_distance,
                                                             key=loc_distance.get,
                                                             reverse=True)]
-    print(sorted_distlist)
-    
+    for i in range(0,20):
+        print("city: {0}, info:{1}".format(sorted_distlist[i][0], cityinfo[sorted_distlist[i][0]]))
 
