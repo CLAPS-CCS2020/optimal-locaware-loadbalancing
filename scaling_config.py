@@ -50,11 +50,11 @@ if __name__ == "__main__":
     
     G,M,E,D = 0, 0, 0, 0
     for Index, relay in relays.iterrows():
-        if "relayexitguard" in relay['Name']:
+        if "exitguard" in relay['Name']:
             D += relay['ConsensusWeight']
-        elif "relayguard" in relay['Name']:
+        elif "guard" in relay['Name']:
             G += relay['ConsensusWeight']
-        elif "relayexit" in relay['Name']:
+        elif "exit" in relay['Name']:
             E += relay['ConsensusWeight']
         else:
             M += relay['ConsensusWeight']
