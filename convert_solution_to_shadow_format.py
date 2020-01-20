@@ -47,10 +47,18 @@ claps_cr_parser.add_argument('--outpath', help="")
 claps_cr_parser.add_argument('--outname', help="")
 
 ##DeNASA
-denasa_parser = sub.add_parser("DeNASA", help="Convert to DeNASA weights")
-denasa_parser.add_argument('--relchoice', help="path to file containing choice of\
+denasa_g_parser = sub.add_parser("DeNASA_G", help="Convert to DeNASA G weights")
+denasa_g_parser.add_argument('--relchoice', help="path to file containing choice of\
         relays for the simulation we expect to run")
-#TODO
+
+denasa_ge_parser = sub.add_parser("CLAPS_DeNASA_GE", help="Convert to DeNASA GE weights")
+denasa_ge_parser.add_argument('--relchoice', help="path to file containing choice of\
+        relays for the simulation we expect to run")
+denasa_ge_parser.add_argument('--sol_file_g', help="path to the solver solution file of denasa g select")
+denasa_ge_parser.add_argument('--sol_file_ge', help="")
+denasa_ge_parser.add_argument('--outpath')
+denasa_ge_parser.add_argument('--outname', default="alternative_weights")
+
 
 ##LASTor
 lastor_parser = sub.add_parser("LASTor", help="Convert to LASTor weights")
@@ -88,6 +96,18 @@ def _get_max_guardconsweight(relays):
         if row['ConsensusWeight'] > max_guard_consensus_weight:
             max_guard_consensus_weight = row['ConsensusWeight']
     return max_guard_consensus_weight, guards
+
+def _parse_solution(solfile):
+    solinfo = {}
+    with open(sol_file) as f:
+        f.readline() #skip header
+        for line in f:
+            loc, relayname = line.split()[1].split("_")
+            if loc not in solinfo:
+                solinfo[loc] = {}
+            weight = int(round(float(line.split()[2])))
+            solinfo[loc][relayname] = weight
+    return solinfo
 
 def compute_cr_weights(args):
     
@@ -132,17 +152,8 @@ def compute_claps_cr_weights(args):
     locationsinfo = {}
     relays = parse_relaychoice(args.relchoice)
     max_guard_consensus_weight, guards = _get_max_guardconsweight(relays)
-    solinfo = {}
     #parse information from the solution file
-    with open(args.sol_file) as f:
-        f.readline() #skip header
-        for line in f:
-            loc, relayname = line.split()[1].split("_")
-            if loc not in solinfo:
-                solinfo[loc] = {}
-            weight = int(round(float(line.split()[2])))
-            solinfo[loc][relayname] = weight
-
+    solinfo = _parse_solution(args.sol_file)
     W, repre = load_and_compute_W_from_clusterinfo(args.client_distribution, args.cluster_repre)
     #Re-compute L! TODO need cluster location distribution
     print("DEBUG: Should be one: {}".format(sum(W.values())))
@@ -168,14 +179,20 @@ def compute_claps_cr_weights(args):
                 int(round(guard['ConsensusWeight']-L[guard['Name']])),
                 -1)
     return locationsinfo
+
+def compute_claps_denasa_ge_weights(args):
+    pass
+
 if __name__ == "__main__":
     args = parser_c.parse_args()
     
     if args.sub == "CR":
         locationsinfo = compute_cr_weights(args)
-        output(locationsinfo, args.outpath, args.outname)
     elif args.sub == "CLAPS_CR":
         locationsinfo = compute_claps_cr_weights(args)
-        output(locationsinfo, args.outpath, args.outname)
-    
+    elif args.sub == "CLAPS_DeNASA_GE":
+        locationsinfo = compute_claps_denasa_ge_weights(args)
+    else:
+        return NotImplemented
+    output(locationsinfo, args.outpath, args.outname)
 
