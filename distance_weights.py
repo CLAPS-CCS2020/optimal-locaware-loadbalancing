@@ -44,8 +44,9 @@ if __name__ == "__main__":
 
     alt_weights = parse_alternative_weights(args.alternative_weights)
     if args.alternative_weights_ge:
-        alt_weights_ge = parse_alternative_weights_ge(args.atlernative_weights_ge)
+        alt_weights_ge = parse_alternative_weights_ge(args.alternative_weights_ge)
         alt_weights_mixed = {}
+        tot_weights = {}
         for location in alt_weights_ge:
             tot_weights[location] = 0
             alt_weights_mixed[location] = {}
@@ -66,6 +67,7 @@ if __name__ == "__main__":
         cityinfo = json.load(f)
 
     loc_distance = {}
+    loc_distance_ge = {}
     for loc in alt_weights:
         if args.alternative_weights_ge:
             pr_relays_ge = compute_pr(alt_weights_mixed[loc])
@@ -75,17 +77,14 @@ if __name__ == "__main__":
             loc_distance_ge[loc] = compute_distance(pr_relays_ge,
                                                     balanced_pr_ge)
    
-    sorted_distlist = [(k, loc_distance[k]) for k in sorted(loc_distance,
-                                                            key=loc_distance.get,
-                                                            reverse=True)]
+    sorted_distlist = [(k, loc_distance[k]) for k in sorted(loc_distance, key=loc_distance.get, reverse=True)]
     if args.alternative_weights_ge:
-        sorted_distlist_ge = [(k, loc_distance_ge[k] for k in
-                               sorted(loc_distance_ge, key=loc_distance_ge.get,
-                                   reverse=True)]
+        sorted_distlist_ge = [(k, loc_distance_ge[k]) for k in sorted(loc_distance_ge, key=loc_distance_ge.get, reverse=True)]
     print("Looking bad regarding guards, first is worst")
     for i in range(0,20):
         print("city: {0}, info:{1}".format(sorted_distlist[i][0], cityinfo[sorted_distlist[i][0]]))
     print("Looking bad regarding exits, first is worst")
+    for i in range(0,20):
         print("city: {0}, info:{1}".format(sorted_distlist_ge[i][0],
                                            cityinfo[sorted_distlist[i][0]]))
 
