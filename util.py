@@ -39,6 +39,22 @@ def parse_client_cluster(filename):
             representative[tab[0]] = tab[1][:-1].split(',')
     return representative
 
+def parse_alternative_weights_ge(filename):
+    alt_weights = {}
+    with open(filename) as f:
+        for line in f:
+            elems = line.split()
+            location = elems[0].split(',')[0]
+            guard = elems[0].split(',')[1].split("_")[0]
+            exit = elems[0].split(',')[1].split('_')[1]
+            weight = int(elems[3])
+            if location not in alt_weights:
+                alt_weights[location] = {}
+            if guard not in alt_weights[location]:
+                alt_weights[location][guard] = {}
+            alt_weights[location][guard][exit] = weight
+    return alt_weights
+
 def parse_alternative_weights(filename):
     alt_weights = {}
     with open(filename) as f:
