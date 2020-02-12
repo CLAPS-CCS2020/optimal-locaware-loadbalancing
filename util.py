@@ -124,6 +124,24 @@ def produce_clustered_pmatrix_for_denasa(pmatrix, repre, asn_to_users, guard_ase
     return pmatrix_clustered
                 
 
+def produce_clustered_pmatrix_for_shadow_denasa(pmatrix, repre, relay_to_asn,
+        client_distribution, guards, exits):
+    pmatrix_clustered = {}
+    for representative, cities in repre.items():
+        for guard in guards:
+            new_W = "{}, {}".format(representative, relay_to_asn[guard])
+            pmatrix_clustered[new_W] = {}
+            for exit in exits:
+                tot = 0
+                tot_users = 0
+                for city in cities:
+                    tot += pmatrix["{}, {}".format(city, relay_to_asn[guard])][relay_to_asn[exit]] * client_distribution[city]
+                    tot_users += client_distribution[city]
+                pmatrix_clustered[new_W][relay_to_asn[exit]] = tot/tot_users
+    return pmatrix_clustered
+
+
+
 def produce_clustered_pmatrix(pmatrix, repre, asn_to_users, guards):
     """
     Compute a pmatrix cluster -> guard -> pvalue as the weighted sum

@@ -16,6 +16,7 @@ import json, pandas
 from util import parse_client_cluster, produce_clustered_pmatrix, tille_pr
 from bandwidth_weights import *
 from weights_optimization import load_and_compute_W_from_clusterinfo
+import pdb
 
 parser_c = argparse.ArgumentParser(description="Produce a file containing weights\
         which can be loaded by clients within our shadow simulations")
@@ -56,6 +57,9 @@ denasa_ge_parser.add_argument('--relchoice', help="path to file containing choic
         relays for the simulation we expect to run")
 denasa_ge_parser.add_argument('--sol_file_g', help="path to the solver solution file of denasa g select")
 denasa_ge_parser.add_argument('--sol_file_ge', help="")
+denasa_ge_parser.add_argument('--client_distribution', help="path to file containing\
+        shadow locations {'citycode':weight}")
+denasa_ge_parser.add_argument('--cluster_repre', help="path to the file containing cluster representative")
 denasa_ge_parser.add_argument('--outpath')
 denasa_ge_parser.add_argument('--outname', default="alternative_weights")
 
@@ -72,16 +76,24 @@ def parse_relaychoice(relchoice):
     """
     return pandas.read_csv(relchoice)
 
-def output(locationsinfo, outpath, outname):
+def output(locationsinfos, sub,  outpath, outname):
     """
         locationsinfo is dict {k:v} with k locationid and v a list containing
         relay_name, weight_for_guard, weight_for_middle and weight_for_exit to
         output
     """
-    with open(os.path.join(outpath, outname), "w") as f:
-        for location in locationsinfo:
-            for value in locationsinfo[location]:
-                f.write("{0}_{1}\n".format(location, locationsinfo[location][value]))
+    def _write_out(locationsinfos, outpath, outname):
+        with open(os.path.join(outpath, outname), "w") as f:
+            for location in locationsinfos:
+                for value in locationsinfos[location]:
+                    f.write("{0}_{1}\n".format(location, locationsinfos[location][value]))
+
+    if sub == "CLAPS_DeNASA_GE":
+        _write_out(locationsinfos[0], outpath, outname+"_g")
+        _write_out(locationsinfos[1], outpath, outname+"_ge")
+    else:
+        _write_out(locationsinfos, outpath, outname)
+
 
 def _get_max_guardconsweight(relays):
     max_guard_consensus_weight = 0
@@ -99,7 +111,7 @@ def _get_max_guardconsweight(relays):
 
 def _parse_solution(solfile):
     solinfo = {}
-    with open(sol_file) as f:
+    with open(solfile) as f:
         f.readline() #skip header
         for line in f:
             loc, relayname = line.split()[1].split("_")
@@ -148,12 +160,12 @@ def compute_cr_weights(args):
                     -1)
     return locationsinfo
 
-def compute_claps_cr_weights(args):
+def compute_claps_g_weights(args, solfile):
     locationsinfo = {}
     relays = parse_relaychoice(args.relchoice)
     max_guard_consensus_weight, guards = _get_max_guardconsweight(relays)
     #parse information from the solution file
-    solinfo = _parse_solution(args.sol_file)
+    solinfo = _parse_solution(solfile)
     W, repre = load_and_compute_W_from_clusterinfo(args.client_distribution, args.cluster_repre)
     #Re-compute L! TODO need cluster location distribution
     print("DEBUG: Should be one: {}".format(sum(W.values())))
@@ -181,7 +193,30 @@ def compute_claps_cr_weights(args):
     return locationsinfo
 
 def compute_claps_denasa_ge_weights(args):
-    pass
+    locationinfo_ge = {}
+    relays = parse_relaychoice(args.relchoice)
+    solinfo_denasa_ge = _parse_solution(args.sol_file_ge)
+    # sol file does not necessary have all guards and all exits
+    guards = {}
+    exits = {}
+    for Index, row in relays.iterrows():
+        #Pick guard-only relays
+        if row['IsExit'] is True:
+            exits[row['Name']] = row['ConsensusWeight']
+        elif row['IsGuard'] is True:
+            guards[row['Name']] = row['ConsensusWeight']
+    for location in solinfo_denasa_ge:
+        locationinfo_ge[location] = {}
+        for exit in exits:
+            if exit in solinfo_denasa_ge[location]:
+                thisexit_weight = solinfo_denasa_ge[location][exit]
+            else:
+                thisexit_weight = 0
+            locationinfo_ge[location][exit] = "{0} {1} {2} {3}".format(exit, 
+                    -1,
+                    -1,
+                    int(round(thisexit_weight)))
+    return locationinfo_ge
 
 if __name__ == "__main__":
     args = parser_c.parse_args()
@@ -189,10 +224,12 @@ if __name__ == "__main__":
     if args.sub == "CR":
         locationsinfo = compute_cr_weights(args)
     elif args.sub == "CLAPS_CR":
-        locationsinfo = compute_claps_cr_weights(args)
+        locationsinfo = compute_claps_g_weights(args, args.sol_file)
     elif args.sub == "CLAPS_DeNASA_GE":
-        locationsinfo = compute_claps_denasa_ge_weights(args)
+        locationsinfo_g = compute_claps_g_weights(args, args.sol_file_g)
+        locationsinfo_ge = compute_claps_denasa_ge_weights(args)
+        locationsinfo = [locationsinfo_g, locationsinfo_ge]
     else:
-        return NotImplemented
-    output(locationsinfo, args.outpath, args.outname)
+        print("Not Implemented")
+    output(locationsinfo, args.sub, args.outpath, args.outname)
 

@@ -1,4 +1,4 @@
-import os, sys
+import os, sys, re
 import argparse
 import json
 
@@ -77,7 +77,7 @@ if __name__ == "__main__":
                     if len(tab) < 10:
                         continue
                     # Interested in timing and relayname
-                    timing = int(tab[2].split(':')[1])*60 + int(tab[2].split(':')[2]) #timing in seconds
+                    timing = int(tab[2].split(':')[1])*60 + int(tab[2].split(':')[2].split('.')[0]) #timing in seconds
                     guard = tab[6].split("~")[1]
                     middle = tab[9].split("~")[1]
                     exit = tab[12].split("~")[1]
@@ -88,7 +88,7 @@ if __name__ == "__main__":
 
                     if not middle in relaycount['middles']:
                         relaycount['middles'][middle] = [timing]
-                    else
+                    else:
                         relaycount['middles'][middle].append(timing)
 
                     if not exit in relaycount['exits']:
@@ -100,23 +100,24 @@ if __name__ == "__main__":
     #  minutes of the simulation
     # Can multiproc this if necessary
     i = 15
+    upper = (i+10)*60
     windowcounters = {}
-    while (upper < 60*60) {
+    while (upper < 60*60):
         lower = i*60
         upper = (i+10)*60
         windowcounters[i-15] = {'guards':{}, 'middles':{}, 'exits':{}}
         
         for entry in relaycount['guards']:
-            ctr = timing_is_in(relaycount['guards'][entry], lower, upper):
+            ctr = timing_is_in(relaycount['guards'][entry], lower, upper)
             windowcounters[i-15]['guards'][entry] = ctr
                 
         for middle in relaycount['middles']:
-            ctr = timing_is_in(relaycount['middles'][middle], lower, upper):
+            ctr = timing_is_in(relaycount['middles'][middle], lower, upper)
             windowcounters[i-15]['middles'][middle] = ctr
         for exit in relaycount['exits']:
-            ctr = timing_is_in(relaycount['exits'][exit], lower, upper):
+            ctr = timing_is_in(relaycount['exits'][exit], lower, upper)
             windowcounters[i-15]['exits'][exit] = ctr
         
         i+=1
-    }
-    json.dump(windowcounters, args.prefix, "windowcounters.json") 
+    with open(os.path.join(args.prefix, "windowscounters.json"), "w") as f:
+        json.dump(windowcounters, f)

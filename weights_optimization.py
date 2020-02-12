@@ -4,7 +4,7 @@ from slim_ases import *
 from pulp import *
 import numpy as np
 import pickle
-from util import get_network_state, produce_clustered_pmatrix, produce_clustered_pmatrix_for_denasa, parse_sol_file
+from util import get_network_state, produce_clustered_pmatrix, produce_clustered_pmatrix_for_denasa, parse_sol_file, produce_clustered_pmatrix_for_shadow_denasa
 from process_ases import GETAS_URL
 import requests
 import random
@@ -67,14 +67,25 @@ cr_shadow_parser.add_argument("--shadow_relay_dump", help="Path to a .json file"
 ## For DeNASA security analysis
 denasa_parser.add_argument("--network_state", help="filepath to the network state containing Tor network's data (shadow_relay_dump in case of shadow simulation")
 denasa_parser.add_argument("--cluster_file", type=str, help="Pickle file of clustered guards")
+## For DeNASA Shadow simulation
+denasa_shadow_parser.add_argument("--shadow_relay_dump", help="Path to a .json file"
+                              " containing information about the network")
 ## For DeNASA g&e security analysis
 denasa_exit_parser = sub.add_parser("DeNASA_EXIT", parents=[denasa_parser],
                                     help="For DeNASA g&e security analysis")
 denasa_exit_parser.add_argument("--deNasa_sol_guards", help="filepath to the solver"
                                 " output file for denasa guard weight LP"
                                 " problem")
-denasa_exit_parser.add_argument("--fp_to_asn", help="filepath to a json dict "
+## For DeNASA g&e shadow 
+denasa_shadow_exit_parser = sub.add_parser("DeNASA_SHADOW_EXIT", parents=[denasa_parser],
+                                            help="For DeNASA g&e shadow sims")
+denasa_shadow_exit_parser.add_argument("--relay_to_asn", help="filepath to a json dict "
                                 "that contains a map from fingerprints to asn")
+denasa_shadow_exit_parser.add_argument("--deNasa_sol_guards", help="filepath to the solver"
+                                " output file for denasa guard weight LP"
+                                " problem")
+denasa_shadow_exit_parser.add_argument("--shadow_relay_dump", help="Path to a .json file"
+                              " containing information about the network")
 
 ELASTICITY = 0.001
 
@@ -103,6 +114,24 @@ class Relay():
 
         self.rates = [] # list of bytes/s histories
 
+
+def load_and_compute_W_from_denasa_clusterinfo(city_to_users_file, clusterinfo, asn_to_city):
+    with open(city_to_users_file) as f:
+        city_to_users = json.load(f)
+    W = {}
+    tot = sum(city_to_users.values())
+    repre = {}
+    with open(clusterinfo) as f:
+        for line in f:
+            tab = line.split('\t')
+            cur_city = asn_to_city[tab[0]][0]
+            W[cur_city] = 0
+            repre[cur_city] = [asn_to_city[x][0] for x in tab[1][:-1].split(',') if x in asn_to_city]
+            for city in repre[cur_city]:
+                W[cur_city] += city_to_users[city]
+            W[cur_city] /= tot
+    return W, repre 
+
 def load_and_compute_W_from_clusterinfo(asn_to_users_file, clusterinfo):
     """
         Compute densities of users per cluster and returns
@@ -124,9 +153,10 @@ def load_and_compute_W_from_clusterinfo(asn_to_users_file, clusterinfo):
             W[tab[0]] /= tot
     #Are we using the right files? =)
     nbr_repre =  sum([len(repre[x]) for x in repre if isinstance(repre[x], list)])
-    assert nbr_repre == len(asn_to_users),\
-    "looks like we don't have the same number of ASes within cluster representatives and the asn_to_json info: {} vs {}"\
-    .format(nbr_repre, len(asn_to_users))
+    if (nbr_repre != len(asn_to_users)):
+        print("looks like we don't have the same number of locations within cluster representatives and the location info for the simulation: {} vs {}.\
+               So it is possible that we are not able to cluster some city appearing in Shadow simulations for example :( "\
+        .format(nbr_repre, len(asn_to_users)))
     return W, repre
 
 
@@ -216,71 +246,6 @@ def build_fake_pmatrix_profile(nodes, locs, randrange):
         for node in nodes:
             pmatrix[loc][node] = random.randint(randrange[0], randrange[1])
     return pmatrix
-
-def model_opt_problem_lastor_shadow(shadow_relay_info, obj_function, out_dir=None, pmatrix_file=None,
-        theta=2.0, disable_SWgg=False):
-    pass
-    with open(shadow_relay_info, "rb") as picklef:
-        exitguards_nodes = pickle.load(picklef)
-        guards_nodes = pickle.load(picklef)
-        exits_nodes = pickle.load(picklef)
-        middles_nodes = pickle.load(picklef)
-    
-    ## Compute G, Wgg, etc.
-    G, E, M, D = 0, 0, 0, 0
-    G = sum(guard.bwconsensus for guard in guards_nodes)
-    E = sum(exit.bwconsensus for exit in exits_nodes)
-    D = sum(exitguard.bwconsensus for exitguard in exitguards_nodes)
-    M = sum(middle.bwconsensus for middle in middles_nodes)
-
-    SWgg = (E + D)/G #SWgg for Scarce Wgg
-
-    ## Load shadow's penalty matrix
-    
-    with open(pmatrix_file, "r") as f:
-        pmatrix = json.load(f)
-
-    ## model opt problem
-
-    location_aware = LpProblem("Location aware selection", LpMinimize)
-    #todo
-
-    objective = LpVariable("L_upper_bound", lowBound = 0)
-    # Compute L as affine expressions involving LpVariables
-    print("Computing Affine Expressions for L, i.e., \sum W_iR_i")
-    L = {}
-    for guard in guards_nodes:
-        L[guard.name] = LpAffineExpression([(R[loc][guard.name], W[loc]) for loc in W], name="L({})".format(guard.name))
-
-    print("Computing the lpSum of LpAffineExpressions as an objective function... (this can take time)")
-    # client-guard relation
-    part_one = lpsum([LpAffineExpression([(R[loc][guard.name], W[loc]*pmatrix[loc][guard.name]) for loc in W]) for guard in guards_nodes])
-    # guard-guard at the middle position relationship
-    part_two = lpsum([LpAffineExpression([(guard.bwconsenus - L[guard.name], pmatrix[guard.name][guard2.name]) for guard2 in guards_nodes if  guard2.name != guard.name]) for guard in guards_nodes])
-    # guard-middle relationship
-    part_three = lpsum([LpAffineExpression([(guard.bwconsenus - L[guard.name], pmatrix[guard.name][middle.name]) for middle in middles_nodes]) for guard in guards_nodes])
-    # middle as guard - exit relationship
-    part_four = lpsum([LpAffineExpression([(guard.bwconsenus - L[guard.name], pmatrix[guard.name][exit.name]) for exit in exits_nodes]) for guard in guards_nodes])
-    # middle as guard - guardexits relationship
-    part_five = lpsum([LpAffineExpression([(guard.bwconsensus - L[guard.name], pmatrix[guard.name][guardexit.name]) for exitguard in exitguards_nodes]) for guard in guards_nodes])
-    location_aware += lpSum([part_one, part_two, part_three, part_four, part_five]), "Z"
-    print("Done.")
-    # Now set of constraints:
-    # Location scores must distribute G*Wgg quantity
-    print("Computing constraints \sum R_l(i) == G*Wgg")
-    for loc in W:
-        sum_R = lpSum([R[loc][guard.name] for guard in guards_nodes])
-        location_aware += sum_R == G*Wgg, "\sum R(i) == G*Wgg for loc {}".format(loc)
-    print("Done.")
-    print("Computing constraints L(i) <= BW_i")
-    for guard in guards_nodes:
-        location_aware += L[guard.name] <= guard.bwconsensus, "L(i) <= BW_i for {}".format(guard.name)
-
-    #No relay gets more than theta times its original selection probability
-    print("GPA constraint, using theta = {} and relCost(i) = BW_i/sum_j(BW_j)".format(theta))
-    for loc in W:
-        for guard in guards_nodes:
-            location_aware += R[loc][guard.name] <= theta*guard.bwconsensus*SWgg
 
 
 def model_opt_problem_for_shadow(W, repre, client_distribution,
@@ -403,6 +368,106 @@ def model_opt_problem_for_shadow(W, repre, client_distribution,
     location_aware.writeMPS(outpath+".mps")
     #location_aware.solve()
 
+def model_opt_problem_shadow_for_denasa_exit(W, repre, L, client_distribution,
+        penalty_vanilla, shadow_relay_dump, obj_function, relay_to_asn_file, out_dir=None,
+        pmatrix_file=None, theta=5.0, disable_SWgg=False):
+
+    with open(relay_to_asn_file) as f:
+        relay_to_asn = json.load(f)
+        
+    with open(client_distribution) as f:
+        client_distribution = json.load(f)
+
+    with open(shadow_relay_dump) as f:
+        relays = json.load(f)
+    with open(penalty_vanilla) as f:
+        penalty_vanilla = json.load(f)
+
+    guards = {}
+    exits_only = {}
+    exits = {}
+    guardexits = {}
+    middles = {}
+    G, E, D, M = 0, 0, 0, 0
+    for name, relinfo in relays.items():
+        if relinfo[4] and relinfo[5]:
+            guardexits[name] = relinfo
+            exits[name] = relinfo
+            D+=relinfo[6]
+        elif relinfo[4]:
+            guards[name] = relinfo
+            G+=relinfo[6]
+        elif relinfo[5]:
+            exits[name] = relinfo
+            exits_only[name] = relinfo
+            E += relinfo[6]
+        else:
+            middles[name] = relinfo
+            M+=relinfo[6]
+    R = {}
+    #max_cons_weight = 0.0
+    #for name, relinfo in guards.items():
+    #    if relinfo[6] > max_cons_weight:
+
+    location_aware = LpProblem("Optimal location-aware path selection for exit deNasa weights", LpMinimize)
+    #cli_loc,guardname -> {exitname : penalty}
+    join_W = {}
+    for loc_cli in W:
+        for guard in guards:
+            join_W["{},{}".format(loc_cli, guard)] = W[loc_cli]*L[guard]
+    tot = sum(join_W.values())
+    for loc in join_W:
+        join_W[loc] = join_W[loc]/tot
+
+    R = {}
+    for loc in join_W:
+        R[loc] = LpVariable.dicts(loc, list(exits.keys()), lowBound = 0,
+                                  upBound=E+D)
+
+    if not pmatrix_file:
+        print("WARN: building fake pmatrix")
+        pmatrix = build_fake_pmatrix_profile([relay_to_asn[exitid] for exitid in exits.keys()], join_W, [0, 8])
+    else:
+        with open(pmatrix_file, 'r') as f:
+            pmatrix_unclustered = json.load(f)
+        print("Unclustered pmatrix loaded... Now clustering that matrix for"
+              " representative.. Ugly O(m*n*q*r)")
+        pmatrix = produce_clustered_pmatrix_for_shadow_denasa(pmatrix_unclustered,
+                                                       repre, relay_to_asn, client_distribution,
+                                                       guards, exits)
+    LE = {}
+    for exit in exits:
+        LE[exit] = LpAffineExpression([(R[loc][exit], join_W[loc]) for loc in join_W], name="LE({})".format(exit))
+    
+    objective = LpVariable("L_upper_bound", lowBound = 0)
+    print("Computing the lpSum of LpAffineExpressions as an objective function... ")
+    location_aware += lpSum([LpAffineExpression([(R[loc][exit],
+                                                  join_W[loc]*pmatrix["{}, {}".format(loc.split(',')[0], relay_to_asn[loc.split(',')[1]])][relay_to_asn[exit]]) for loc in join_W]) for exit in exits]), "Z"
+
+    ## Computing constraints
+    print("Computing constraints \sum R_l(i) == E+D (under the assumption E+D is scarce, this is the right way to load balance)")
+    for loc in join_W:
+        #location_aware.extend(prob_extension)
+        sum_R = lpSum([R[loc][exitid] for exitid in exits])
+        location_aware += sum_R == E+D, "\sum R(i) == E+D for loc {}".format(loc)
+
+    print("Computing constraints LE(i) <= BW_i")
+    for exitid in exits:
+        location_aware += LE[exitid] <= exits[exitid][6]
+
+    print("GPA constraint, using theta = {} and relCost(i) = BW_i/sum_j(BW_j)".format(theta))
+    for loc in join_W:
+        for exitid in exits:
+            # Assuming exit relays are used at 100% in exit position
+            location_aware += R[loc][exitid] <= theta*exits[exitid][6]
+    print("Done.")
+    # print("Adding 'no worse than vanilla constraint'")
+    # for loc in W:
+        # for ori_loc in repre[loc]:
+            # location_aware += LpAffineExpression([(R[loc][exitid], pmatrix_unclustered[ori_loc][relay_to_asn[exitid]]) for exitid in exitids]) <= penalty_vanilla[ori_loc] * (E+D)
+    
+    write_to_mps_file(location_aware, out_dir, obj_function, theta)
+
 def model_opt_problem_for_denasa_exit(W, repre, L, asn_to_users_file,
                                       penalty_vanilla, ns_file,
                                       fp_to_asn_file,
@@ -499,6 +564,9 @@ def model_opt_problem_for_denasa_exit(W, repre, L, asn_to_users_file,
         location_aware += sum_R == E+D, "\sum R(i) == E+D for loc {}".format(loc)
 
     print("Computing constraints LE(i) <= BW_i")
+    
+    for exitid in exitids:
+        location_aware += LE[exitid] <= network_state.cons_rel_stats[exitid].consweight
 
     print("GPA constraint, using theta = {} and relCost(i) = BW_i/sum_j(BW_j)".format(theta))
     for loc in join_location:
@@ -737,11 +805,39 @@ if __name__ == "__main__":
                                           pmatrix_file=args.pmatrix,
                                           disable_SWgg=args.disable_SWgg)
     elif args.sub == "DeNASA_SHADOW":
-        ## We have two cases to handle: only g weight calculation, and g&e
-        # weight calculation
-        pass
+        W, repre = load_and_compute_W_from_clusterinfo(args.tor_users_to_location, args.client_clust_representative)
+        model_opt_problem_for_shadow(W, repre, args.tor_users_to_location,
+                                     args.penalty_vanilla,
+                                     args.shadow_relay_dump,
+                                     args.obj_function,
+                                     theta=args.theta,
+                                     pmatrix_file=args.pmatrix,
+                                     out_dir=args.out_dir,
+                                     disable_SWgg=args.disable_SWgg)
     elif args.sub == "DeNASA_SHADOW_EXIT":
-        pass
+        print("Computing Client representative weighting ...")
+        W, repre =\
+        load_and_compute_W_from_clusterinfo(args.tor_users_to_location,
+                                            args.client_clust_representative)
+        #extract guards
+        guards = {}
+        with open(args.shadow_relay_dump) as f:
+            relays = json.load(f)
+            for name, relinfo in relays.items():
+                if relinfo[4] and not relinfo[5]:
+                    guards[name] = relinfo
+        L = load_and_compute_from_solfile(W, guards, args.deNasa_sol_guards)
+        model_opt_problem_shadow_for_denasa_exit(W, repre, L,
+                                                args.tor_users_to_location,
+                                                args.penalty_vanilla,
+                                                args.shadow_relay_dump,
+                                                args.obj_function,
+                                                args.relay_to_asn,
+                                                theta=args.theta,
+                                                pmatrix_file=args.pmatrix,
+                                                out_dir=args.out_dir,
+                                                disable_SWgg=args.disable_SWgg)
+        
     else:
         sys.exit(-1)
 
