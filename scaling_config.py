@@ -88,7 +88,7 @@ if __name__ == "__main__":
         if "relayguard" in relay['Name']:
             nrelays[relay['Name']] = int(round(relay['ConsensusWeight'] * reducing_bw))
             relays.at[Index, 'ConsensusWeight'] = nrelays[relay['Name']]
-    relays.to_csv("relay.choices.2.csv")
+    relays.to_csv("relay.choices.2.csv", index=False)
     if args.config:
         print("Editing the shadow config, and saving to shadow.config.2.xml")
         edit_shadow_config(nrelays, args.config)
