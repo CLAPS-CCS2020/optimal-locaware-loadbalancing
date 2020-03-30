@@ -214,8 +214,9 @@ def load_and_compute_from_solfile(W, guards, pathsolfile):
         L(i) = \sum W_j*R_ij for each guard i
     """
     parsed_weights = parse_sol_file(pathsolfile)
-    assert len(parsed_weights) == len(W), "We do not have the same AS set size "
-    "between ASes parsed from the DeNASA guard sol file and W?"
+    if len(parsed_weights) != len(W):
+        print("We do not have the same AS set size "
+    "between ASes parsed from the DeNASA guard sol file and W?")
     L = {}
     for  guard in guards:
         L[guard] = 0
